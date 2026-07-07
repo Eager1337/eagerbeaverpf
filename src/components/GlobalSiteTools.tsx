@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { Moon, Search, Sun, X, ArrowRight, LayoutDashboard, BarChart3 } from "lucide-react";
+import { Moon, Search, Sun, X, ArrowRight, LayoutDashboard, LayoutGrid, User, BarChart3 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PAGES } from "../data/pages";
 import { FEATURES } from "../data/features";
