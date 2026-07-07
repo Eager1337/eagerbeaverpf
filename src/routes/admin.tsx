@@ -81,21 +81,62 @@ function AdminGate() {
 /* ---------------- Sign-in ---------------- */
 
 function SignIn({ onAuthed }: { onAuthed: () => void }) {
+  const [step, setStep] = useState<"questions" | "creds">("questions");
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [warned, setWarned] = useState(false);
+  const [attempts, setAttempts] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [camera, setCamera] = useState<"idle" | "granted" | "denied">("idle");
 
-  const submit = (e: React.FormEvent) => {
+  // Ask for camera access the moment the admin panel opens — used to capture a
+  // photo of anyone who fails verification.
+  useEffect(() => {
+    let cancelled = false;
+    requestCamera().then((stream) => {
+      if (cancelled) return;
+      setCamera(stream ? "granted" : "denied");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const triggerIntruder = async (reason: string) => {
+    setWarned(true);
+    setAttempts((a) => a + 1);
+    await recordIntruder(reason, user.trim() || "(none)");
+  };
+
+  const submitQuestions = (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setErr(null);
-    setTimeout(() => {
+    setTimeout(async () => {
+      if (checkSecurityAnswers(answers)) {
+        setStep("creds");
+        setWarned(false);
+      } else {
+        setErr("One or more security answers are incorrect.");
+        await triggerIntruder("Failed security questions");
+      }
+      setBusy(false);
+    }, 300);
+  };
+
+  const submitCreds = (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setErr(null);
+    setTimeout(async () => {
       if (checkCredentials(user.trim(), pass)) {
         setAdminAuthed(true);
         onAuthed();
       } else {
         setErr("Wrong username or password.");
+        await triggerIntruder("Wrong username or password");
       }
       setBusy(false);
     }, 350);
@@ -163,63 +204,161 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
               </div>
             </div>
 
-            <p className="mt-4 text-sm text-white/60">
-              Sign in to edit Legends, ToonHub, pricing, Explore projects and add landing pages — no
-              code required.
-            </p>
-
-            <form onSubmit={submit} className="mt-6 space-y-4">
-              <label className="block">
-                <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
-                  Username
-                </span>
-                <input
-                  autoFocus
-                  value={user}
-                  onChange={(e) => setUser(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400"
-                  placeholder="Eagerbeaver1"
-                  autoComplete="username"
-                />
-              </label>
-              <label className="block">
-                <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
-                  Password
-                </span>
-                <div className="relative mt-1.5">
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                  <input
-                    type="password"
-                    value={pass}
-                    onChange={(e) => setPass(e.target.value)}
-                    className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400"
-                    placeholder="••••••••••"
-                    autoComplete="current-password"
-                  />
-                </div>
-              </label>
-
-              {err && (
-                <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                  {err}
-                </div>
+            {/* camera / security status */}
+            <div
+              className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] ${
+                camera === "granted"
+                  ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                  : camera === "denied"
+                    ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                    : "border-white/15 bg-white/5 text-white/60"
+              }`}
+            >
+              {camera === "granted" ? (
+                <Camera className="h-3.5 w-3.5" />
+              ) : (
+                <CameraOff className="h-3.5 w-3.5" />
               )}
+              {camera === "granted"
+                ? "Security camera active — this area is monitored."
+                : camera === "denied"
+                  ? "Camera access is required to continue. Failed attempts are still logged."
+                  : "Requesting camera access for security verification…"}
+            </div>
 
-              <button
-                type="submit"
-                disabled={busy}
-                className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
-              >
-                <span className="relative z-10">{busy ? "Verifying…" : "Enter dashboard"}</span>
-                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-              </button>
-            </form>
+            {/* intruder warning */}
+            <AnimatePresence>
+              {warned && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-4 overflow-hidden"
+                >
+                  <div className="flex items-start gap-2 rounded-xl border border-red-500/50 bg-red-500/15 px-3 py-3 text-xs text-red-200">
+                    <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+                    <div>
+                      <div className="font-bold uppercase tracking-wide">
+                        ⚠️ Unauthorized access detected
+                      </div>
+                      <p className="mt-1 leading-relaxed text-red-200/90">
+                        Your photo, device details, IP fingerprint and location data have been
+                        captured and reported to the owner's security dashboard. Leave this page
+                        immediately — continued tampering will be prosecuted.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {step === "questions" ? (
+              <>
+                <p className="mt-4 text-sm text-white/60">
+                  Answer the security questions to prove you are the owner.
+                </p>
+                <form onSubmit={submitQuestions} className="mt-6 space-y-4">
+                  {SECURITY_QUESTIONS.map((q, i) => (
+                    <label key={q.id} className="block">
+                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+                        Question {i + 1}
+                      </span>
+                      <span className="mt-1 block text-sm text-white/80">{q.question}</span>
+                      <input
+                        value={answers[q.id] ?? ""}
+                        onChange={(e) =>
+                          setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                        }
+                        className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400"
+                        placeholder="Your answer"
+                      />
+                    </label>
+                  ))}
+
+                  {err && (
+                    <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      {err}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
+                  >
+                    <span className="relative z-10">{busy ? "Verifying…" : "Verify identity"}</span>
+                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <p className="mt-4 text-sm text-white/60">
+                  Identity confirmed. Enter your admin credentials to continue.
+                </p>
+                <form onSubmit={submitCreds} className="mt-6 space-y-4">
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+                      Username
+                    </span>
+                    <input
+                      autoFocus
+                      value={user}
+                      onChange={(e) => setUser(e.target.value)}
+                      className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400"
+                      placeholder="Username"
+                      autoComplete="username"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+                      Password
+                    </span>
+                    <div className="relative mt-1.5">
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                      <input
+                        type="password"
+                        value={pass}
+                        onChange={(e) => setPass(e.target.value)}
+                        className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400"
+                        placeholder="••••••••••"
+                        autoComplete="current-password"
+                      />
+                    </div>
+                  </label>
+
+                  {err && (
+                    <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      {err}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
+                  >
+                    <span className="relative z-10">
+                      {busy ? "Verifying…" : "Enter dashboard"}
+                    </span>
+                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                  </button>
+                </form>
+              </>
+            )}
+
+            {attempts >= 2 && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
+                <AlertTriangle className="h-3.5 w-3.5" /> {attempts} failed attempts recorded on this
+                device.
+              </div>
+            )}
 
             <div className="mt-6 flex items-center justify-between text-[11px] text-white/40">
               <Link to="/" className="hover:text-white">
                 ← Back to site
               </Link>
-              <span>Local-only session</span>
+              <span>Monitored area</span>
             </div>
           </div>
         </motion.div>
@@ -227,6 +366,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     </div>
   );
 }
+
 
 /* ---------------- Dashboard ---------------- */
 
