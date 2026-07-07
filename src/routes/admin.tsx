@@ -516,6 +516,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
               {tab === "explore" && <ExplorePanel />}
               {tab === "landings" && <LandingsPanel />}
               {tab === "portfolio" && <PortfolioPanel />}
+              {tab === "intruders" && <IntrudersPanel />}
             </motion.div>
           </AnimatePresence>
         </main>
