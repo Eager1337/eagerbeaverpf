@@ -1606,3 +1606,131 @@ function PortfolioPanel() {
     </>
   );
 }
+
+/* ---------------- Intruders / Security panel ---------------- */
+
+function IntrudersPanel() {
+  const [records, setRecords] = useState<IntruderRecord[]>([]);
+  const [preview, setPreview] = useState<IntruderRecord | null>(null);
+
+  useEffect(() => {
+    setRecords(getIntruders());
+  }, []);
+
+  const refresh = () => setRecords(getIntruders());
+  const removeOne = (id: string) => {
+    deleteIntruder(id);
+    refresh();
+  };
+  const clearAll = () => {
+    if (window.confirm("Delete all captured intruder records?")) {
+      clearIntruders();
+      refresh();
+    }
+  };
+
+  return (
+    <>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold" style={{ fontFamily: "'Kanit', sans-serif" }}>
+            Security · Captured intruders
+          </h2>
+          <p className="mt-1 text-sm text-white/50">
+            Anyone who fails the security questions or enters a wrong password on the admin sign-in
+            is photographed (if they granted camera access) and logged here.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={refresh}
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold hover:bg-white/10"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Refresh
+          </button>
+          {records.length > 0 && (
+            <button
+              onClick={clearAll}
+              className="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Clear all
+            </button>
+          )}
+        </div>
+      </div>
+
+      {records.length === 0 ? (
+        <Card>
+          <div className="flex flex-col items-center gap-3 py-10 text-center text-white/50">
+            <ShieldCheck className="h-10 w-10 text-emerald-400" />
+            <p className="text-sm">No intrusion attempts recorded. Your admin panel is secure.</p>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {records.map((r) => (
+            <Card key={r.id} className="p-0 overflow-hidden">
+              <button
+                onClick={() => r.photo && setPreview(r)}
+                className="relative block aspect-[4/3] w-full bg-black/60"
+              >
+                {r.photo ? (
+                  <img
+                    src={r.photo}
+                    alt="Captured intruder"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/40">
+                    <CameraOff className="h-8 w-8" />
+                    <span className="text-[11px]">Camera was blocked</span>
+                  </div>
+                )}
+                <span className="absolute left-2 top-2 rounded-full bg-red-500/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  Intruder
+                </span>
+              </button>
+              <div className="p-4">
+                <div className="text-xs font-semibold text-red-300">{r.reason}</div>
+                <div className="mt-2 space-y-1 text-[11px] text-white/50">
+                  <div>🕒 {new Date(r.at).toLocaleString()}</div>
+                  <div>👤 Tried: {r.usernameTried}</div>
+                  <div>🌍 {r.timezone || "unknown"}</div>
+                  <div className="truncate" title={r.userAgent}>
+                    💻 {r.platform || "?"} · {r.screen}
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeOne(r.id)}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10"
+                >
+                  <Trash2 className="h-3 w-3" /> Delete
+                </button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {preview?.photo && (
+          <div
+            className="fixed inset-0 z-[400] flex items-center justify-center bg-black/85 p-4 backdrop-blur-xl"
+            onClick={() => setPreview(null)}
+          >
+            <motion.img
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              src={preview.photo}
+              alt="Captured intruder"
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-[85vh] max-w-3xl rounded-2xl border border-white/20 shadow-2xl"
+            />
+          </div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
