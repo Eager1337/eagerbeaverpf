@@ -998,7 +998,46 @@ function HomePage() {
       <ProjectsSection />
       <VanguardHero />
       <LithosHero />
+      <PortfolioOsBanner />
       <DiagnosticsPanel />
     </main>
   );
 }
+
+function PortfolioOsBanner() {
+  return (
+    <section className="relative mx-auto max-w-5xl px-5 py-16 sm:px-6">
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-600/20 via-black to-sky-600/20 p-8 text-center sm:p-12">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.35em] text-white/60">
+          Explore everything
+        </div>
+        <h2
+          className="mt-3 text-3xl font-black tracking-tight text-white sm:text-5xl"
+          style={{ fontFamily: "'Kanit', sans-serif" }}
+        >
+          Enter Portfolio OS
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
+          50+ interactive features and 50+ pages — case studies, skill tree, live GitHub analytics,
+          developer terminal, AI assistant, investor mode and more, organized like a real operating
+          system.
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            to="/portfolio-os"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.03]"
+          >
+            <ArrowUpRight className="h-4 w-4" /> Open Portfolio OS
+          </Link>
+          <Link
+            to="/portfolio"
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10"
+          >
+            About Eager Beaver
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
