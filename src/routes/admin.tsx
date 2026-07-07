@@ -16,6 +16,10 @@ import {
   LogOut,
   Lock,
   ShieldCheck,
+  ShieldAlert,
+  Camera,
+  CameraOff,
+  AlertTriangle,
   Download,
   Upload,
   RotateCcw,
@@ -30,9 +34,20 @@ import {
   type PricingTier,
   type CustomLanding,
 } from "../lib/content-store";
+import {
+  SECURITY_QUESTIONS,
+  checkSecurityAnswers,
+  requestCamera,
+  recordIntruder,
+  getIntruders,
+  deleteIntruder,
+  clearIntruders,
+  type IntruderRecord,
+} from "../lib/security-gate";
 import type { Legend } from "../data/legends";
 import type { Project, ProjectCategory } from "../data/projects";
 import { CATEGORIES } from "../data/projects";
+
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
