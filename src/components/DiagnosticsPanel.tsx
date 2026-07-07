@@ -96,6 +96,33 @@ export function DiagnosticsPanel() {
     if (open && checks.length === 0) void run();
   }, [open]);
 
+  // Auto-probe /portfolio-os on page load. If it fails, open the panel and run
+  // the full diagnostics automatically with a clear reason.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/portfolio-os", { method: "GET", cache: "no-store" });
+        if (!res.ok && !cancelled) {
+          setOpen(true);
+          void run();
+        }
+      } catch {
+        if (!cancelled) {
+          setOpen(true);
+          void run();
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const failing = checks.filter((c) => c.status === "fail");
+
+
   const forceUpdate = async () => {
     if (!("serviceWorker" in navigator)) return;
     const regs = await navigator.serviceWorker.getRegistrations();
