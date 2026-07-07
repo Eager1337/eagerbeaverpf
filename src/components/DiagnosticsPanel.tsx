@@ -156,7 +156,30 @@ export function DiagnosticsPanel() {
               </button>
             </div>
             <div className="max-h-[65vh] overflow-y-auto px-5 py-4">
-              <div className="mb-3 text-[11px] uppercase tracking-widest text-white/50">Active cache: {swVersion}</div>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-[11px] uppercase tracking-widest text-white/50">
+                <span>Active cache: {swVersion}</span>
+                <span>Last SW: {swVersion}</span>
+              </div>
+              {failing.length > 0 && (
+                <div className="mb-3 rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-3 text-xs text-red-200">
+                  <div className="flex items-center gap-2 font-bold">
+                    <XCircle className="h-4 w-4" /> {failing.length} problem
+                    {failing.length > 1 ? "s" : ""} detected
+                  </div>
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {failing.map((c) => (
+                      <li key={`fail-${c.id}`}>
+                        <span className="font-semibold">{c.label}</span> — {c.detail}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-2 text-red-200/80">
+                    Fix: tap “Force update &amp; reload” below to clear stale caches and reload the
+                    latest build.
+                  </div>
+                </div>
+              )}
+
               <ul className="space-y-2">
                 {checks.map((c) => (
                   <li key={c.id} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs">
