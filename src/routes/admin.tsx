@@ -370,7 +370,15 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
 
 /* ---------------- Dashboard ---------------- */
 
-type TabKey = "overview" | "toonhub" | "legends" | "pricing" | "explore" | "landings" | "portfolio";
+type TabKey =
+  | "overview"
+  | "toonhub"
+  | "legends"
+  | "pricing"
+  | "explore"
+  | "landings"
+  | "portfolio"
+  | "intruders";
 
 const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
@@ -380,7 +388,9 @@ const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "explore", label: "Explore Projects", icon: Compass },
   { key: "landings", label: "Landing Pages", icon: Rocket },
   { key: "portfolio", label: "Portfolio Bio", icon: User },
+  { key: "intruders", label: "Security / Intruders", icon: ShieldAlert },
 ];
+
 
 function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
   const [tab, setTab] = useState<TabKey>("overview");
