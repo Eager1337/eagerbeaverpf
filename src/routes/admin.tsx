@@ -1803,22 +1803,39 @@ function PortfolioPanel() {
 /* ---------------- Intruders / Security panel ---------------- */
 
 function IntrudersPanel() {
-  const [records, setRecords] = useState<IntruderRecord[]>([]);
-  const [preview, setPreview] = useState<IntruderRecord | null>(null);
+  const [records, setRecords] = useState<IntruderRow[]>([]);
+  const [preview, setPreview] = useState<IntruderRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchList = useServerFn(listIntruders);
+  const doDelete = useServerFn(deleteIntruderRecord);
+  const doClear = useServerFn(clearAllIntruders);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchList();
+      setRecords(res.records as IntruderRow[]);
+    } catch {
+      setError("Could not load captured intruders.");
+    }
+    setLoading(false);
+  }, [fetchList]);
 
   useEffect(() => {
-    setRecords(getIntruders());
-  }, []);
-
-  const refresh = () => setRecords(getIntruders());
-  const removeOne = (id: string) => {
-    deleteIntruder(id);
     refresh();
+  }, [refresh]);
+
+  const removeOne = async (id: string) => {
+    await doDelete({ data: { id } });
+    setRecords((rs) => rs.filter((r) => r.id !== id));
   };
-  const clearAll = () => {
+  const clearAll = async () => {
     if (window.confirm("Delete all captured intruder records?")) {
-      clearIntruders();
-      refresh();
+      await doClear();
+      setRecords([]);
     }
   };
 
@@ -1830,8 +1847,9 @@ function IntrudersPanel() {
             Security · Captured intruders
           </h2>
           <p className="mt-1 text-sm text-white/50">
-            Anyone who fails the security questions or enters a wrong password on the admin sign-in
-            is photographed (if they granted camera access) and logged here.
+            Anyone who fails the security questions or enters wrong credentials on the admin sign-in
+            is photographed (if they granted camera access) and logged to your cloud dashboard —
+            viewable from any device.
           </p>
         </div>
         <div className="flex gap-2">
@@ -1852,7 +1870,19 @@ function IntrudersPanel() {
         </div>
       </div>
 
-      {records.length === 0 ? (
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <Card>
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/50">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading captures…
+          </div>
+        </Card>
+      ) : records.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-3 py-10 text-center text-white/50">
             <ShieldCheck className="h-10 w-10 text-emerald-400" />
@@ -1886,10 +1916,11 @@ function IntrudersPanel() {
               <div className="p-4">
                 <div className="text-xs font-semibold text-red-300">{r.reason}</div>
                 <div className="mt-2 space-y-1 text-[11px] text-white/50">
-                  <div>🕒 {new Date(r.at).toLocaleString()}</div>
-                  <div>👤 Tried: {r.usernameTried}</div>
+                  <div>🕒 {new Date(r.created_at).toLocaleString()}</div>
+                  <div>👤 Tried: {r.username_tried}</div>
+                  <div>🌐 IP: {r.ip || "unknown"}</div>
                   <div>🌍 {r.timezone || "unknown"}</div>
-                  <div className="truncate" title={r.userAgent}>
+                  <div className="truncate" title={r.user_agent ?? ""}>
                     💻 {r.platform || "?"} · {r.screen}
                   </div>
                 </div>
@@ -1926,4 +1957,180 @@ function IntrudersPanel() {
     </>
   );
 }
+
+/* ---------------- Privacy controls panel ---------------- */
+
+const RETENTION_OPTIONS = [
+  { value: 0, label: "Never delete" },
+  { value: 7, label: "7 days" },
+  { value: 30, label: "30 days" },
+  { value: 90, label: "90 days" },
+  { value: 365, label: "1 year" },
+];
+
+function PrivacyPanel() {
+  const [autoDelete, setAutoDelete] = useState(false);
+  const [retentionDays, setRetentionDays] = useState(0);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const fetchSettings = useServerFn(getPrivacySettings);
+  const saveSettings = useServerFn(updatePrivacySettings);
+  const doPurge = useServerFn(purgeExpiredNow);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSettings()
+      .then((s) => {
+        if (cancelled) return;
+        setAutoDelete(s.autoDelete);
+        setRetentionDays(s.retentionDays);
+        setUpdatedAt(s.updatedAt);
+      })
+      .catch(() => {})
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchSettings]);
+
+  const save = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await saveSettings({ data: { retentionDays, autoDelete } });
+      setUpdatedAt(new Date().toISOString());
+      setMsg("Privacy settings saved ✓");
+    } catch {
+      setMsg("Could not save settings.");
+    }
+    setSaving(false);
+  };
+
+  const purgeNow = async () => {
+    if (retentionDays <= 0) {
+      setMsg("Set a retention period first, then purge.");
+      return;
+    }
+    if (!window.confirm(`Delete all captures older than ${retentionDays} days now?`)) return;
+    setPurging(true);
+    setMsg(null);
+    try {
+      const res = await doPurge();
+      setMsg(`Purged ${res.deleted} old capture${res.deleted === 1 ? "" : "s"} ✓`);
+    } catch {
+      setMsg("Could not purge now.");
+    }
+    setPurging(false);
+  };
+
+  return (
+    <>
+      <div className="mb-5">
+        <h2 className="text-xl font-bold" style={{ fontFamily: "'Kanit', sans-serif" }}>
+          Privacy controls
+        </h2>
+        <p className="mt-1 text-sm text-white/50">
+          Automatically delete captured intruder media after a retention period. Purging runs daily
+          in the cloud and removes photos plus their metadata permanently.
+        </p>
+      </div>
+
+      {loading ? (
+        <Card>
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/50">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          <Card>
+            <label className="flex items-center justify-between gap-4">
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                <Trash2 className="h-4 w-4 text-fuchsia-300" /> Auto-delete old captures
+              </span>
+              <button
+                type="button"
+                onClick={() => setAutoDelete((v) => !v)}
+                className={`relative h-6 w-11 rounded-full transition-colors ${
+                  autoDelete ? "bg-emerald-500" : "bg-white/20"
+                }`}
+                aria-pressed={autoDelete}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    autoDelete ? "translate-x-5" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </label>
+            <p className="mt-2 text-[11px] text-white/40">
+              When on, captures older than the retention period are deleted automatically every day.
+            </p>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Clock className="h-4 w-4 text-sky-300" /> Retention period
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {RETENTION_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setRetentionDays(opt.value)}
+                  className={`rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
+                    retentionDays === opt.value
+                      ? "border-fuchsia-400/60 bg-fuchsia-500/20 text-white"
+                      : "border-white/15 bg-white/5 text-white/60 hover:bg-white/10"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {retentionDays === 0 && (
+              <p className="mt-3 text-[11px] text-amber-300/80">
+                Retention is set to “Never” — nothing will be auto-deleted until you choose a period.
+              </p>
+            )}
+          </Card>
+
+          {msg && (
+            <div className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/70">
+              {msg}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={save}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-sky-500 px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-fuchsia-500/30 disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Save settings
+            </button>
+            <button
+              onClick={purgeNow}
+              disabled={purging || retentionDays <= 0}
+              className="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/10 px-5 py-2.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+            >
+              {purging ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Purge expired now
+            </button>
+            {updatedAt && (
+              <span className="text-[11px] text-white/40">
+                Last updated {new Date(updatedAt).toLocaleString()}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 
