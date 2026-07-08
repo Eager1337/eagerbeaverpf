@@ -1,22 +1,6 @@
-// Admin security gate: security questions + intruder photo capture.
-// All data is stored locally in the browser (localStorage) so the owner can
-// review capture attempts inside the admin dashboard.
-
-export type IntruderRecord = {
-  id: string;
-  at: number; // epoch ms
-  reason: string; // what they got wrong
-  usernameTried: string;
-  photo: string | null; // dataURL (JPEG) or null if camera was blocked
-  userAgent: string;
-  language: string;
-  platform: string;
-  screen: string;
-  timezone: string;
-};
-
-const INTRUDER_KEY = "portfolio-intruders";
-const MAX_RECORDS = 60;
+// Admin security gate helpers: security questions + intruder photo capture.
+// Persistence now lives in Lovable Cloud (see src/lib/security.functions.ts);
+// this module only handles the browser-side pieces (camera, metadata).
 
 /* ---------------- Security questions ---------------- */
 
@@ -34,43 +18,39 @@ export function checkSecurityAnswers(answers: Record<string, string>): boolean {
   );
 }
 
-/* ---------------- Intruder log ---------------- */
+/* ---------------- Device identifier ---------------- */
 
-export function getIntruders(): IntruderRecord[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(INTRUDER_KEY);
-    return raw ? (JSON.parse(raw) as IntruderRecord[]) : [];
-  } catch {
-    return [];
+const DEVICE_KEY = "portfolio-device-id";
+
+export function getDeviceId(): string {
+  if (typeof window === "undefined") return "";
+  let id = window.localStorage.getItem(DEVICE_KEY);
+  if (!id) {
+    id = `dev-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    window.localStorage.setItem(DEVICE_KEY, id);
   }
+  return id;
 }
 
-export function saveIntruder(rec: IntruderRecord) {
-  if (typeof window === "undefined") return;
-  const all = [rec, ...getIntruders()].slice(0, MAX_RECORDS);
-  try {
-    window.localStorage.setItem(INTRUDER_KEY, JSON.stringify(all));
-  } catch {
-    // storage full — drop oldest photos and retry once
-    const trimmed = all.slice(0, 20);
-    try {
-      window.localStorage.setItem(INTRUDER_KEY, JSON.stringify(trimmed));
-    } catch {
-      /* give up silently */
-    }
+export type ClientMeta = {
+  userAgent: string;
+  language: string;
+  platform: string;
+  screen: string;
+  timezone: string;
+};
+
+export function gatherClientMeta(): ClientMeta {
+  if (typeof navigator === "undefined") {
+    return { userAgent: "", language: "", platform: "", screen: "", timezone: "" };
   }
-}
-
-export function clearIntruders() {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(INTRUDER_KEY);
-}
-
-export function deleteIntruder(id: string) {
-  if (typeof window === "undefined") return;
-  const next = getIntruders().filter((r) => r.id !== id);
-  window.localStorage.setItem(INTRUDER_KEY, JSON.stringify(next));
+  return {
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    platform: (navigator as Navigator & { platform?: string }).platform ?? "",
+    screen: typeof window !== "undefined" ? `${window.screen.width}×${window.screen.height}` : "",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? "",
+  };
 }
 
 /* ---------------- Camera capture ---------------- */
@@ -124,22 +104,4 @@ export async function capturePhoto(): Promise<string | null> {
   } catch {
     return null;
   }
-}
-
-export async function recordIntruder(reason: string, usernameTried: string) {
-  const photo = await capturePhoto();
-  const rec: IntruderRecord = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    at: Date.now(),
-    reason,
-    usernameTried,
-    photo,
-    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-    language: typeof navigator !== "undefined" ? navigator.language : "",
-    platform: typeof navigator !== "undefined" ? (navigator.platform ?? "") : "",
-    screen: typeof window !== "undefined" ? `${window.screen.width}×${window.screen.height}` : "",
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone ?? "",
-  };
-  saveIntruder(rec);
-  return rec;
 }
