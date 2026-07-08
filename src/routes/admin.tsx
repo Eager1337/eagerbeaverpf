@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { motion, AnimatePresence } from "framer-motion";
 import JSZip from "jszip";
 import {
@@ -24,12 +25,13 @@ import {
   Upload,
   RotateCcw,
   ExternalLink,
+  Mail,
+  Clock,
+  Timer,
+  Loader2,
 } from "lucide-react";
 import {
   useContent,
-  checkCredentials,
-  isAdminAuthed,
-  setAdminAuthed,
   type ToonSlide,
   type PricingTier,
   type CustomLanding,
@@ -38,15 +40,44 @@ import {
   SECURITY_QUESTIONS,
   checkSecurityAnswers,
   requestCamera,
-  recordIntruder,
-  getIntruders,
-  deleteIntruder,
-  clearIntruders,
-  type IntruderRecord,
+  stopCamera,
+  capturePhoto,
+  getDeviceId,
+  gatherClientMeta,
 } from "../lib/security-gate";
+import { supabase } from "../integrations/supabase/client";
+import {
+  logIntruder,
+  checkAdminLockout,
+  recordAdminFailure,
+  clearAdminFailures,
+  claimAdminIfUnclaimed,
+  getMyAdminStatus,
+  listIntruders,
+  deleteIntruderRecord,
+  clearAllIntruders,
+  getPrivacySettings,
+  updatePrivacySettings,
+  purgeExpiredNow,
+} from "../lib/security.functions";
 import type { Legend } from "../data/legends";
 import type { Project, ProjectCategory } from "../data/projects";
 import { CATEGORIES } from "../data/projects";
+
+export type IntruderRow = {
+  id: string;
+  created_at: string;
+  reason: string;
+  username_tried: string;
+  photo: string | null;
+  ip: string | null;
+  user_agent: string | null;
+  language: string | null;
+  platform: string | null;
+  screen: string | null;
+  timezone: string | null;
+};
+
 
 
 export const Route = createFileRoute("/admin")({
