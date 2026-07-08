@@ -1,10 +1,11 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useLocation } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { Moon, Search, Sun, X, ArrowRight, LayoutDashboard, LayoutGrid, User, BarChart3 } from "lucide-react";
+import { Moon, Search, Sun, X, ArrowRight, LayoutDashboard, LayoutGrid, User, BarChart3, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PAGES } from "../data/pages";
 import { FEATURES } from "../data/features";
 import { useContent } from "../lib/content-store";
+import { useInvestorMode } from "../lib/investor-mode";
 
 type Result = { id: string; label: string; meta: string; to: string };
 
