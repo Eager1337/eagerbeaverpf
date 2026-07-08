@@ -1,10 +1,11 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useLocation } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { Moon, Search, Sun, X, ArrowRight, LayoutDashboard, LayoutGrid, User, BarChart3 } from "lucide-react";
+import { Moon, Search, Sun, X, ArrowRight, LayoutDashboard, LayoutGrid, User, BarChart3, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { PAGES } from "../data/pages";
 import { FEATURES } from "../data/features";
 import { useContent } from "../lib/content-store";
+import { useInvestorMode } from "../lib/investor-mode";
 
 type Result = { id: string; label: string; meta: string; to: string };
 
@@ -13,7 +14,10 @@ export function GlobalSiteTools() {
   const [query, setQuery] = useState("");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const navigate = useNavigate();
+  const location = useLocation();
   const { projects, legends, landings } = useContent();
+  const { investorMode, toggle: toggleInvestor, hydrated: investorHydrated } = useInvestorMode();
+  const onAbout = location.pathname === "/portfolio";
 
   useEffect(() => {
     const saved = window.localStorage.getItem("portfolio-theme-mode") as "dark" | "light" | null;
@@ -56,6 +60,32 @@ export function GlobalSiteTools() {
 
   return (
     <>
+      <AnimatePresence>
+        {investorHydrated && investorMode && (
+          <motion.div
+            initial={{ y: -60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -60, opacity: 0 }}
+            className="fixed inset-x-0 top-0 z-[130] border-b border-amber-300/40 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-black shadow-xl"
+          >
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 text-center text-[12px] font-semibold sm:text-sm">
+              <span className="inline-flex items-center gap-1.5">
+                <TrendingUp className="h-4 w-4" /> Investor Mode
+              </span>
+              <span className="opacity-80">Ships production apps in weeks, not months</span>
+              <span className="opacity-80">50+ features across 52 shipped pages</span>
+              <span className="opacity-80">Full-stack · systems · measurable impact</span>
+              <button
+                onClick={toggleInvestor}
+                className="rounded-full bg-black/85 px-3 py-1 text-[11px] font-bold text-amber-300 hover:bg-black"
+              >
+                Exit
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="fixed bottom-3 left-3 right-3 z-[120] grid grid-cols-[auto_auto_1fr] items-center gap-2 sm:left-auto sm:right-4 sm:flex sm:w-auto">
         <button
           onClick={() => setSearchOpen(true)}
@@ -71,7 +101,28 @@ export function GlobalSiteTools() {
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
         <div className="flex min-w-0 justify-end gap-2 overflow-x-auto sm:overflow-visible">
-          <Link to="/portfolio" className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-white/20 bg-black/75 px-3 text-xs font-semibold text-white shadow-2xl backdrop-blur-xl hover:bg-black">
+          <button
+            onClick={toggleInvestor}
+            aria-pressed={investorMode}
+            title="Investor Mode: pitch-focused messaging"
+            className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold shadow-2xl backdrop-blur-xl transition-colors ${
+              investorHydrated && investorMode
+                ? "border-amber-300/60 bg-gradient-to-r from-amber-400 to-orange-500 text-black hover:opacity-90"
+                : "border-white/20 bg-black/75 text-white hover:bg-black"
+            }`}
+          >
+            <TrendingUp className="h-3.5 w-3.5" />{" "}
+            {investorHydrated && investorMode ? "Investor: ON" : "Investor Mode"}
+          </button>
+          <Link
+            to="/portfolio"
+            aria-current={onAbout ? "page" : undefined}
+            className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold shadow-2xl backdrop-blur-xl ${
+              onAbout
+                ? "border-fuchsia-400/60 bg-gradient-to-r from-fuchsia-500/30 to-sky-500/30 text-white ring-1 ring-fuchsia-400/50"
+                : "border-white/20 bg-black/75 text-white hover:bg-black"
+            }`}
+          >
             <User className="h-3.5 w-3.5" /> About
           </Link>
           <Link to="/portfolio-os" className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-white/20 bg-black/75 px-3 text-xs font-semibold text-white shadow-2xl backdrop-blur-xl hover:bg-black">
@@ -84,6 +135,7 @@ export function GlobalSiteTools() {
             <BarChart3 className="h-3.5 w-3.5" /> Suite
           </Link>
         </div>
+
 
       </div>
 

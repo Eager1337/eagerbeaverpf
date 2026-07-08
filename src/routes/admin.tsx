@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { motion, AnimatePresence } from "framer-motion";
 import JSZip from "jszip";
 import {
@@ -24,12 +25,13 @@ import {
   Upload,
   RotateCcw,
   ExternalLink,
+  Mail,
+  Clock,
+  Timer,
+  Loader2,
 } from "lucide-react";
 import {
   useContent,
-  checkCredentials,
-  isAdminAuthed,
-  setAdminAuthed,
   type ToonSlide,
   type PricingTier,
   type CustomLanding,
@@ -38,15 +40,44 @@ import {
   SECURITY_QUESTIONS,
   checkSecurityAnswers,
   requestCamera,
-  recordIntruder,
-  getIntruders,
-  deleteIntruder,
-  clearIntruders,
-  type IntruderRecord,
+  stopCamera,
+  capturePhoto,
+  getDeviceId,
+  gatherClientMeta,
 } from "../lib/security-gate";
+import { supabase } from "../integrations/supabase/client";
+import {
+  logIntruder,
+  checkAdminLockout,
+  recordAdminFailure,
+  clearAdminFailures,
+  claimAdminIfUnclaimed,
+  getMyAdminStatus,
+  listIntruders,
+  deleteIntruderRecord,
+  clearAllIntruders,
+  getPrivacySettings,
+  updatePrivacySettings,
+  purgeExpiredNow,
+} from "../lib/security.functions";
 import type { Legend } from "../data/legends";
 import type { Project, ProjectCategory } from "../data/projects";
 import { CATEGORIES } from "../data/projects";
+
+export type IntruderRow = {
+  id: string;
+  created_at: string;
+  reason: string;
+  username_tried: string;
+  photo: string | null;
+  ip: string | null;
+  user_agent: string | null;
+  language: string | null;
+  platform: string | null;
+  screen: string | null;
+  timezone: string | null;
+};
+
 
 
 export const Route = createFileRoute("/admin")({
@@ -64,15 +95,49 @@ export const Route = createFileRoute("/admin")({
   component: AdminGate,
 });
 
+function FullScreenLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#050510] text-white">
+      <Loader2 className="h-6 w-6 animate-spin text-fuchsia-400" />
+    </div>
+  );
+}
+
 function AdminGate() {
-  const [authed, setAuthed] = useState(false);
-  useEffect(() => setAuthed(isAdminAuthed()), []);
-  if (!authed) return <SignIn onAuthed={() => setAuthed(true)} />;
+  const [status, setStatus] = useState<"loading" | "out" | "in">("loading");
+  const getAdmin = useServerFn(getMyAdminStatus);
+
+  const refresh = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      setStatus("out");
+      return;
+    }
+    try {
+      const res = await getAdmin();
+      if (res.isAdmin) {
+        setStatus("in");
+      } else {
+        await supabase.auth.signOut();
+        setStatus("out");
+      }
+    } catch {
+      setStatus("out");
+    }
+  }, [getAdmin]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  if (status === "loading") return <FullScreenLoader />;
+  if (status === "out") return <SignIn onAuthed={() => setStatus("in")} />;
   return (
     <AdminDashboard
-      onSignOut={() => {
-        setAdminAuthed(false);
-        setAuthed(false);
+      onSignOut={async () => {
+        stopCamera();
+        await supabase.auth.signOut();
+        setStatus("out");
       }}
     />
   );
@@ -82,36 +147,83 @@ function AdminGate() {
 
 function SignIn({ onAuthed }: { onAuthed: () => void }) {
   const [step, setStep] = useState<"questions" | "creds">("questions");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [user, setUser] = useState("");
+  const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [warned, setWarned] = useState(false);
-  const [attempts, setAttempts] = useState(0);
   const [busy, setBusy] = useState(false);
   const [camera, setCamera] = useState<"idle" | "granted" | "denied">("idle");
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [lockSeconds, setLockSeconds] = useState(0);
 
-  // Ask for camera access the moment the admin panel opens — used to capture a
-  // photo of anyone who fails verification.
+  const doLog = useServerFn(logIntruder);
+  const doCheckLock = useServerFn(checkAdminLockout);
+  const doRecordFail = useServerFn(recordAdminFailure);
+  const doClearFail = useServerFn(clearAdminFailures);
+  const doClaim = useServerFn(claimAdminIfUnclaimed);
+
+  const locked = lockSeconds > 0;
+
+  // Camera + lockout status on mount.
   useEffect(() => {
     let cancelled = false;
     requestCamera().then((stream) => {
-      if (cancelled) return;
-      setCamera(stream ? "granted" : "denied");
+      if (!cancelled) setCamera(stream ? "granted" : "denied");
     });
+    const deviceId = getDeviceId();
+    doCheckLock({ data: { deviceId } })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.locked) setLockSeconds(res.secondsLeft);
+        setAttemptsLeft(res.attemptsRemaining);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [doCheckLock]);
+
+  // Lockout countdown.
+  useEffect(() => {
+    if (lockSeconds <= 0) return;
+    const t = setInterval(() => setLockSeconds((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [lockSeconds]);
 
   const triggerIntruder = async (reason: string) => {
     setWarned(true);
-    setAttempts((a) => a + 1);
-    await recordIntruder(reason, user.trim() || "(none)");
+    const deviceId = getDeviceId();
+    // Record the failed attempt for lockout accounting.
+    try {
+      const res = await doRecordFail({ data: { deviceId } });
+      setAttemptsLeft(res.attemptsRemaining);
+      if (res.locked) setLockSeconds(res.secondsLeft);
+    } catch {
+      /* ignore */
+    }
+    // Capture + persist the intruder (photo may be null if camera blocked).
+    try {
+      const photo = await capturePhoto();
+      const meta = gatherClientMeta();
+      await doLog({
+        data: {
+          reason,
+          usernameTried: email.trim() || "(none)",
+          photo,
+          deviceId,
+          ...meta,
+        },
+      });
+    } catch {
+      /* ignore */
+    }
   };
 
   const submitQuestions = (e: React.FormEvent) => {
     e.preventDefault();
+    if (locked) return;
     setBusy(true);
     setErr(null);
     setTimeout(async () => {
@@ -123,24 +235,64 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
         await triggerIntruder("Failed security questions");
       }
       setBusy(false);
-    }, 300);
+    }, 250);
   };
 
-  const submitCreds = (e: React.FormEvent) => {
+  const submitCreds = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (locked) return;
     setBusy(true);
     setErr(null);
-    setTimeout(async () => {
-      if (checkCredentials(user.trim(), pass)) {
-        setAdminAuthed(true);
+    try {
+      if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: pass,
+          options: { emailRedirectTo: window.location.origin },
+        });
+        if (error) {
+          setErr(error.message);
+          setBusy(false);
+          return;
+        }
+        if (!data.session) {
+          setErr("Account created. Please confirm your email, then sign in.");
+          setMode("signin");
+          setBusy(false);
+          return;
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: pass,
+        });
+        if (error) {
+          setErr("Wrong email or password.");
+          await triggerIntruder("Wrong email or password");
+          setBusy(false);
+          return;
+        }
+      }
+
+      // Session established — verify (or claim) owner privileges.
+      const claim = await doClaim();
+      if (claim.isAdmin) {
+        await doClearFail({ data: { deviceId: getDeviceId() } });
         onAuthed();
       } else {
-        setErr("Wrong username or password.");
-        await triggerIntruder("Wrong username or password");
+        await supabase.auth.signOut();
+        setErr("This account is not authorized to access the admin panel.");
+        await triggerIntruder("Unauthorized account access");
       }
-      setBusy(false);
-    }, 350);
+    } catch {
+      setErr("Something went wrong. Please try again.");
+    }
+    setBusy(false);
   };
+
+  const mmss = `${String(Math.floor(lockSeconds / 60)).padStart(2, "0")}:${String(
+    lockSeconds % 60,
+  ).padStart(2, "0")}`;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050510] text-white">
@@ -226,6 +378,20 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
                   : "Requesting camera access for security verification…"}
             </div>
 
+            {/* lockout banner */}
+            {locked && (
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-500/15 px-3 py-3 text-xs text-red-200">
+                <Timer className="h-4 w-4 shrink-0 text-red-400" />
+                <div>
+                  <div className="font-bold uppercase tracking-wide">Temporarily locked</div>
+                  <p className="mt-0.5 text-red-200/90">
+                    Too many failed attempts. Try again in{" "}
+                    <span className="font-mono font-bold">{mmss}</span>.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* intruder warning */}
             <AnimatePresence>
               {warned && (
@@ -269,7 +435,8 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
                         onChange={(e) =>
                           setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
                         }
-                        className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400"
+                        disabled={locked}
+                        className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
                         placeholder="Your answer"
                       />
                     </label>
@@ -283,7 +450,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
 
                   <button
                     type="submit"
-                    disabled={busy}
+                    disabled={busy || locked}
                     className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
                   >
                     <span className="relative z-10">{busy ? "Verifying…" : "Verify identity"}</span>
@@ -294,21 +461,29 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
             ) : (
               <>
                 <p className="mt-4 text-sm text-white/60">
-                  Identity confirmed. Enter your admin credentials to continue.
+                  Identity confirmed.{" "}
+                  {mode === "signin"
+                    ? "Enter your owner credentials to continue."
+                    : "Create the owner account (first account only)."}
                 </p>
                 <form onSubmit={submitCreds} className="mt-6 space-y-4">
                   <label className="block">
                     <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
-                      Username
+                      Email
                     </span>
-                    <input
-                      autoFocus
-                      value={user}
-                      onChange={(e) => setUser(e.target.value)}
-                      className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400"
-                      placeholder="Username"
-                      autoComplete="username"
-                    />
+                    <div className="relative mt-1.5">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                      <input
+                        autoFocus
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={locked}
+                        className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
+                        placeholder="owner@email.com"
+                        autoComplete="email"
+                      />
+                    </div>
                   </label>
                   <label className="block">
                     <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
@@ -320,9 +495,10 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
                         type="password"
                         value={pass}
                         onChange={(e) => setPass(e.target.value)}
-                        className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400"
+                        disabled={locked}
+                        className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
                         placeholder="••••••••••"
-                        autoComplete="current-password"
+                        autoComplete={mode === "signup" ? "new-password" : "current-password"}
                       />
                     </div>
                   </label>
@@ -335,22 +511,39 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
 
                   <button
                     type="submit"
-                    disabled={busy}
+                    disabled={busy || locked}
                     className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
                   >
                     <span className="relative z-10">
-                      {busy ? "Verifying…" : "Enter dashboard"}
+                      {busy
+                        ? "Verifying…"
+                        : mode === "signup"
+                          ? "Create owner account"
+                          : "Enter dashboard"}
                     </span>
                     <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode((m) => (m === "signin" ? "signup" : "signin"));
+                      setErr(null);
+                    }}
+                    className="w-full text-center text-[11px] text-white/50 hover:text-white"
+                  >
+                    {mode === "signin"
+                      ? "First time here? Create the owner account →"
+                      : "← Back to sign in"}
                   </button>
                 </form>
               </>
             )}
 
-            {attempts >= 2 && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-[11px] text-red-300">
-                <AlertTriangle className="h-3.5 w-3.5" /> {attempts} failed attempts recorded on this
-                device.
+            {attemptsLeft !== null && attemptsLeft < 5 && attemptsLeft > 0 && !locked && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
+                <AlertTriangle className="h-3.5 w-3.5" /> {attemptsLeft} attempt
+                {attemptsLeft === 1 ? "" : "s"} left before temporary lockout.
               </div>
             )}
 
@@ -378,7 +571,8 @@ type TabKey =
   | "explore"
   | "landings"
   | "portfolio"
-  | "intruders";
+  | "intruders"
+  | "privacy";
 
 const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
@@ -389,6 +583,7 @@ const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "landings", label: "Landing Pages", icon: Rocket },
   { key: "portfolio", label: "Portfolio Bio", icon: User },
   { key: "intruders", label: "Security / Intruders", icon: ShieldAlert },
+  { key: "privacy", label: "Privacy Controls", icon: Clock },
 ];
 
 
@@ -517,6 +712,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
               {tab === "landings" && <LandingsPanel />}
               {tab === "portfolio" && <PortfolioPanel />}
               {tab === "intruders" && <IntrudersPanel />}
+              {tab === "privacy" && <PrivacyPanel />}
             </motion.div>
           </AnimatePresence>
         </main>
@@ -1610,22 +1806,39 @@ function PortfolioPanel() {
 /* ---------------- Intruders / Security panel ---------------- */
 
 function IntrudersPanel() {
-  const [records, setRecords] = useState<IntruderRecord[]>([]);
-  const [preview, setPreview] = useState<IntruderRecord | null>(null);
+  const [records, setRecords] = useState<IntruderRow[]>([]);
+  const [preview, setPreview] = useState<IntruderRow | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchList = useServerFn(listIntruders);
+  const doDelete = useServerFn(deleteIntruderRecord);
+  const doClear = useServerFn(clearAllIntruders);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchList();
+      setRecords(res.records as IntruderRow[]);
+    } catch {
+      setError("Could not load captured intruders.");
+    }
+    setLoading(false);
+  }, [fetchList]);
 
   useEffect(() => {
-    setRecords(getIntruders());
-  }, []);
-
-  const refresh = () => setRecords(getIntruders());
-  const removeOne = (id: string) => {
-    deleteIntruder(id);
     refresh();
+  }, [refresh]);
+
+  const removeOne = async (id: string) => {
+    await doDelete({ data: { id } });
+    setRecords((rs) => rs.filter((r) => r.id !== id));
   };
-  const clearAll = () => {
+  const clearAll = async () => {
     if (window.confirm("Delete all captured intruder records?")) {
-      clearIntruders();
-      refresh();
+      await doClear();
+      setRecords([]);
     }
   };
 
@@ -1637,8 +1850,9 @@ function IntrudersPanel() {
             Security · Captured intruders
           </h2>
           <p className="mt-1 text-sm text-white/50">
-            Anyone who fails the security questions or enters a wrong password on the admin sign-in
-            is photographed (if they granted camera access) and logged here.
+            Anyone who fails the security questions or enters wrong credentials on the admin sign-in
+            is photographed (if they granted camera access) and logged to your cloud dashboard —
+            viewable from any device.
           </p>
         </div>
         <div className="flex gap-2">
@@ -1659,7 +1873,19 @@ function IntrudersPanel() {
         </div>
       </div>
 
-      {records.length === 0 ? (
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <Card>
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/50">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading captures…
+          </div>
+        </Card>
+      ) : records.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-3 py-10 text-center text-white/50">
             <ShieldCheck className="h-10 w-10 text-emerald-400" />
@@ -1693,10 +1919,11 @@ function IntrudersPanel() {
               <div className="p-4">
                 <div className="text-xs font-semibold text-red-300">{r.reason}</div>
                 <div className="mt-2 space-y-1 text-[11px] text-white/50">
-                  <div>🕒 {new Date(r.at).toLocaleString()}</div>
-                  <div>👤 Tried: {r.usernameTried}</div>
+                  <div>🕒 {new Date(r.created_at).toLocaleString()}</div>
+                  <div>👤 Tried: {r.username_tried}</div>
+                  <div>🌐 IP: {r.ip || "unknown"}</div>
                   <div>🌍 {r.timezone || "unknown"}</div>
-                  <div className="truncate" title={r.userAgent}>
+                  <div className="truncate" title={r.user_agent ?? ""}>
                     💻 {r.platform || "?"} · {r.screen}
                   </div>
                 </div>
@@ -1733,4 +1960,180 @@ function IntrudersPanel() {
     </>
   );
 }
+
+/* ---------------- Privacy controls panel ---------------- */
+
+const RETENTION_OPTIONS = [
+  { value: 0, label: "Never delete" },
+  { value: 7, label: "7 days" },
+  { value: 30, label: "30 days" },
+  { value: 90, label: "90 days" },
+  { value: 365, label: "1 year" },
+];
+
+function PrivacyPanel() {
+  const [autoDelete, setAutoDelete] = useState(false);
+  const [retentionDays, setRetentionDays] = useState(0);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const fetchSettings = useServerFn(getPrivacySettings);
+  const saveSettings = useServerFn(updatePrivacySettings);
+  const doPurge = useServerFn(purgeExpiredNow);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSettings()
+      .then((s) => {
+        if (cancelled) return;
+        setAutoDelete(s.autoDelete);
+        setRetentionDays(s.retentionDays);
+        setUpdatedAt(s.updatedAt);
+      })
+      .catch(() => {})
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchSettings]);
+
+  const save = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await saveSettings({ data: { retentionDays, autoDelete } });
+      setUpdatedAt(new Date().toISOString());
+      setMsg("Privacy settings saved ✓");
+    } catch {
+      setMsg("Could not save settings.");
+    }
+    setSaving(false);
+  };
+
+  const purgeNow = async () => {
+    if (retentionDays <= 0) {
+      setMsg("Set a retention period first, then purge.");
+      return;
+    }
+    if (!window.confirm(`Delete all captures older than ${retentionDays} days now?`)) return;
+    setPurging(true);
+    setMsg(null);
+    try {
+      const res = await doPurge();
+      setMsg(`Purged ${res.deleted} old capture${res.deleted === 1 ? "" : "s"} ✓`);
+    } catch {
+      setMsg("Could not purge now.");
+    }
+    setPurging(false);
+  };
+
+  return (
+    <>
+      <div className="mb-5">
+        <h2 className="text-xl font-bold" style={{ fontFamily: "'Kanit', sans-serif" }}>
+          Privacy controls
+        </h2>
+        <p className="mt-1 text-sm text-white/50">
+          Automatically delete captured intruder media after a retention period. Purging runs daily
+          in the cloud and removes photos plus their metadata permanently.
+        </p>
+      </div>
+
+      {loading ? (
+        <Card>
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/50">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          <Card>
+            <label className="flex items-center justify-between gap-4">
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                <Trash2 className="h-4 w-4 text-fuchsia-300" /> Auto-delete old captures
+              </span>
+              <button
+                type="button"
+                onClick={() => setAutoDelete((v) => !v)}
+                className={`relative h-6 w-11 rounded-full transition-colors ${
+                  autoDelete ? "bg-emerald-500" : "bg-white/20"
+                }`}
+                aria-pressed={autoDelete}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    autoDelete ? "translate-x-5" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </label>
+            <p className="mt-2 text-[11px] text-white/40">
+              When on, captures older than the retention period are deleted automatically every day.
+            </p>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Clock className="h-4 w-4 text-sky-300" /> Retention period
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {RETENTION_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setRetentionDays(opt.value)}
+                  className={`rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
+                    retentionDays === opt.value
+                      ? "border-fuchsia-400/60 bg-fuchsia-500/20 text-white"
+                      : "border-white/15 bg-white/5 text-white/60 hover:bg-white/10"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {retentionDays === 0 && (
+              <p className="mt-3 text-[11px] text-amber-300/80">
+                Retention is set to “Never” — nothing will be auto-deleted until you choose a period.
+              </p>
+            )}
+          </Card>
+
+          {msg && (
+            <div className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/70">
+              {msg}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={save}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-sky-500 px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-fuchsia-500/30 disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Save settings
+            </button>
+            <button
+              onClick={purgeNow}
+              disabled={purging || retentionDays <= 0}
+              className="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/10 px-5 py-2.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+            >
+              {purging ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Purge expired now
+            </button>
+            {updatedAt && (
+              <span className="text-[11px] text-white/40">
+                Last updated {new Date(updatedAt).toLocaleString()}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 

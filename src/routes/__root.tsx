@@ -17,6 +17,7 @@ import { GlobalSiteTools } from "../components/GlobalSiteTools";
 import { PortfolioOsSettingsProvider, bumpSession } from "../lib/portfolio-os-settings";
 import { registerPortfolioOsSw } from "../lib/register-sw";
 import { ContentStoreProvider } from "../lib/content-store";
+import { InvestorModeProvider } from "../lib/investor-mode";
 
 function NotFoundComponent() {
   return (
@@ -145,12 +146,14 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <PortfolioOsSettingsProvider>
         <ContentStoreProvider>
-          <MotionConfig reducedMotion="user">
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-            <CommandPalette />
-            <GlobalSiteTools />
-          </MotionConfig>
+          <InvestorModeProvider>
+            <MotionConfig reducedMotion="user">
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+              <CommandPalette />
+              <GlobalSiteTools />
+            </MotionConfig>
+          </InvestorModeProvider>
         </ContentStoreProvider>
       </PortfolioOsSettingsProvider>
     </QueryClientProvider>
