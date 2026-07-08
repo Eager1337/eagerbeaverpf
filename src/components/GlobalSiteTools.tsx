@@ -75,7 +75,28 @@ export function GlobalSiteTools() {
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
         <div className="flex min-w-0 justify-end gap-2 overflow-x-auto sm:overflow-visible">
-          <Link to="/portfolio" className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-white/20 bg-black/75 px-3 text-xs font-semibold text-white shadow-2xl backdrop-blur-xl hover:bg-black">
+          <button
+            onClick={toggleInvestor}
+            aria-pressed={investorMode}
+            title="Investor Mode: pitch-focused messaging"
+            className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold shadow-2xl backdrop-blur-xl transition-colors ${
+              investorHydrated && investorMode
+                ? "border-amber-300/60 bg-gradient-to-r from-amber-400 to-orange-500 text-black hover:opacity-90"
+                : "border-white/20 bg-black/75 text-white hover:bg-black"
+            }`}
+          >
+            <TrendingUp className="h-3.5 w-3.5" />{" "}
+            {investorHydrated && investorMode ? "Investor: ON" : "Investor Mode"}
+          </button>
+          <Link
+            to="/portfolio"
+            aria-current={onAbout ? "page" : undefined}
+            className={`inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold shadow-2xl backdrop-blur-xl ${
+              onAbout
+                ? "border-fuchsia-400/60 bg-gradient-to-r from-fuchsia-500/30 to-sky-500/30 text-white ring-1 ring-fuchsia-400/50"
+                : "border-white/20 bg-black/75 text-white hover:bg-black"
+            }`}
+          >
             <User className="h-3.5 w-3.5" /> About
           </Link>
           <Link to="/portfolio-os" className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-white/20 bg-black/75 px-3 text-xs font-semibold text-white shadow-2xl backdrop-blur-xl hover:bg-black">
@@ -88,6 +109,7 @@ export function GlobalSiteTools() {
             <BarChart3 className="h-3.5 w-3.5" /> Suite
           </Link>
         </div>
+
 
       </div>
 
