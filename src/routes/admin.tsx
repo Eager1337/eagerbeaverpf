@@ -95,15 +95,49 @@ export const Route = createFileRoute("/admin")({
   component: AdminGate,
 });
 
+function FullScreenLoader() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#050510] text-white">
+      <Loader2 className="h-6 w-6 animate-spin text-fuchsia-400" />
+    </div>
+  );
+}
+
 function AdminGate() {
-  const [authed, setAuthed] = useState(false);
-  useEffect(() => setAuthed(isAdminAuthed()), []);
-  if (!authed) return <SignIn onAuthed={() => setAuthed(true)} />;
+  const [status, setStatus] = useState<"loading" | "out" | "in">("loading");
+  const getAdmin = useServerFn(getMyAdminStatus);
+
+  const refresh = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      setStatus("out");
+      return;
+    }
+    try {
+      const res = await getAdmin();
+      if (res.isAdmin) {
+        setStatus("in");
+      } else {
+        await supabase.auth.signOut();
+        setStatus("out");
+      }
+    } catch {
+      setStatus("out");
+    }
+  }, [getAdmin]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  if (status === "loading") return <FullScreenLoader />;
+  if (status === "out") return <SignIn onAuthed={() => setStatus("in")} />;
   return (
     <AdminDashboard
-      onSignOut={() => {
-        setAdminAuthed(false);
-        setAuthed(false);
+      onSignOut={async () => {
+        stopCamera();
+        await supabase.auth.signOut();
+        setStatus("out");
       }}
     />
   );
@@ -112,6 +146,420 @@ function AdminGate() {
 /* ---------------- Sign-in ---------------- */
 
 function SignIn({ onAuthed }: { onAuthed: () => void }) {
+  const [step, setStep] = useState<"questions" | "creds">("questions");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [warned, setWarned] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [camera, setCamera] = useState<"idle" | "granted" | "denied">("idle");
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [lockSeconds, setLockSeconds] = useState(0);
+
+  const doLog = useServerFn(logIntruder);
+  const doCheckLock = useServerFn(checkAdminLockout);
+  const doRecordFail = useServerFn(recordAdminFailure);
+  const doClearFail = useServerFn(clearAdminFailures);
+  const doClaim = useServerFn(claimAdminIfUnclaimed);
+
+  const locked = lockSeconds > 0;
+
+  // Camera + lockout status on mount.
+  useEffect(() => {
+    let cancelled = false;
+    requestCamera().then((stream) => {
+      if (!cancelled) setCamera(stream ? "granted" : "denied");
+    });
+    const deviceId = getDeviceId();
+    doCheckLock({ data: { deviceId } })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.locked) setLockSeconds(res.secondsLeft);
+        setAttemptsLeft(res.attemptsRemaining);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [doCheckLock]);
+
+  // Lockout countdown.
+  useEffect(() => {
+    if (lockSeconds <= 0) return;
+    const t = setInterval(() => setLockSeconds((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [lockSeconds]);
+
+  const triggerIntruder = async (reason: string) => {
+    setWarned(true);
+    const deviceId = getDeviceId();
+    // Record the failed attempt for lockout accounting.
+    try {
+      const res = await doRecordFail({ data: { deviceId } });
+      setAttemptsLeft(res.attemptsRemaining);
+      if (res.locked) setLockSeconds(res.secondsLeft);
+    } catch {
+      /* ignore */
+    }
+    // Capture + persist the intruder (photo may be null if camera blocked).
+    try {
+      const photo = await capturePhoto();
+      const meta = gatherClientMeta();
+      await doLog({
+        data: {
+          reason,
+          usernameTried: email.trim() || "(none)",
+          photo,
+          deviceId,
+          ...meta,
+        },
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const submitQuestions = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (locked) return;
+    setBusy(true);
+    setErr(null);
+    setTimeout(async () => {
+      if (checkSecurityAnswers(answers)) {
+        setStep("creds");
+        setWarned(false);
+      } else {
+        setErr("One or more security answers are incorrect.");
+        await triggerIntruder("Failed security questions");
+      }
+      setBusy(false);
+    }, 250);
+  };
+
+  const submitCreds = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (locked) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password: pass,
+          options: { emailRedirectTo: window.location.origin },
+        });
+        if (error) {
+          setErr(error.message);
+          setBusy(false);
+          return;
+        }
+        if (!data.session) {
+          setErr("Account created. Please confirm your email, then sign in.");
+          setMode("signin");
+          setBusy(false);
+          return;
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: pass,
+        });
+        if (error) {
+          setErr("Wrong email or password.");
+          await triggerIntruder("Wrong email or password");
+          setBusy(false);
+          return;
+        }
+      }
+
+      // Session established — verify (or claim) owner privileges.
+      const claim = await doClaim();
+      if (claim.isAdmin) {
+        await doClearFail({ data: { deviceId: getDeviceId() } });
+        onAuthed();
+      } else {
+        await supabase.auth.signOut();
+        setErr("This account is not authorized to access the admin panel.");
+        await triggerIntruder("Unauthorized account access");
+      }
+    } catch {
+      setErr("Something went wrong. Please try again.");
+    }
+    setBusy(false);
+  };
+
+  const mmss = `${String(Math.floor(lockSeconds / 60)).padStart(2, "0")}:${String(
+    lockSeconds % 60,
+  ).padStart(2, "0")}`;
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-[#050510] text-white">
+      {/* animated gradient background */}
+      <div
+        className="absolute inset-0 opacity-70"
+        style={{
+          background:
+            "radial-gradient(60% 45% at 15% 20%, rgba(168,85,247,0.35), transparent 60%), radial-gradient(50% 40% at 85% 30%, rgba(56,189,248,0.35), transparent 60%), radial-gradient(45% 45% at 50% 90%, rgba(236,72,153,0.28), transparent 60%)",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          maskImage: "radial-gradient(ellipse at center, black 40%, transparent 75%)",
+        }}
+      />
+
+      {/* floating orbs */}
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full blur-3xl opacity-60"
+          style={{
+            width: 240 + i * 80,
+            height: 240 + i * 80,
+            background: ["#a855f7", "#38bdf8", "#ec4899"][i],
+            left: `${20 + i * 25}%`,
+            top: `${10 + i * 20}%`,
+          }}
+          animate={{ x: [0, 30, -20, 0], y: [0, -40, 20, 0] }}
+          transition={{ duration: 12 + i * 3, repeat: Infinity, ease: "easeInOut" }}
+        />
+      ))}
+
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-md"
+        >
+          <div className="rounded-3xl border border-white/15 bg-white/[0.03] p-8 backdrop-blur-2xl shadow-[0_30px_90px_-20px_rgba(168,85,247,0.4)]">
+            <div className="flex items-center gap-3">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-sky-500 shadow-lg shadow-fuchsia-500/30">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/60">
+                  Portfolio OS
+                </div>
+                <h1
+                  className="text-2xl font-black tracking-tight"
+                  style={{ fontFamily: "'Kanit', sans-serif" }}
+                >
+                  Command Center
+                </h1>
+              </div>
+            </div>
+
+            {/* camera / security status */}
+            <div
+              className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] ${
+                camera === "granted"
+                  ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                  : camera === "denied"
+                    ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                    : "border-white/15 bg-white/5 text-white/60"
+              }`}
+            >
+              {camera === "granted" ? (
+                <Camera className="h-3.5 w-3.5" />
+              ) : (
+                <CameraOff className="h-3.5 w-3.5" />
+              )}
+              {camera === "granted"
+                ? "Security camera active — this area is monitored."
+                : camera === "denied"
+                  ? "Camera access is required to continue. Failed attempts are still logged."
+                  : "Requesting camera access for security verification…"}
+            </div>
+
+            {/* lockout banner */}
+            {locked && (
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-500/15 px-3 py-3 text-xs text-red-200">
+                <Timer className="h-4 w-4 shrink-0 text-red-400" />
+                <div>
+                  <div className="font-bold uppercase tracking-wide">Temporarily locked</div>
+                  <p className="mt-0.5 text-red-200/90">
+                    Too many failed attempts. Try again in{" "}
+                    <span className="font-mono font-bold">{mmss}</span>.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* intruder warning */}
+            <AnimatePresence>
+              {warned && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-4 overflow-hidden"
+                >
+                  <div className="flex items-start gap-2 rounded-xl border border-red-500/50 bg-red-500/15 px-3 py-3 text-xs text-red-200">
+                    <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+                    <div>
+                      <div className="font-bold uppercase tracking-wide">
+                        ⚠️ Unauthorized access detected
+                      </div>
+                      <p className="mt-1 leading-relaxed text-red-200/90">
+                        Your photo, device details, IP fingerprint and location data have been
+                        captured and reported to the owner's security dashboard. Leave this page
+                        immediately — continued tampering will be prosecuted.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {step === "questions" ? (
+              <>
+                <p className="mt-4 text-sm text-white/60">
+                  Answer the security questions to prove you are the owner.
+                </p>
+                <form onSubmit={submitQuestions} className="mt-6 space-y-4">
+                  {SECURITY_QUESTIONS.map((q, i) => (
+                    <label key={q.id} className="block">
+                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+                        Question {i + 1}
+                      </span>
+                      <span className="mt-1 block text-sm text-white/80">{q.question}</span>
+                      <input
+                        value={answers[q.id] ?? ""}
+                        onChange={(e) =>
+                          setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                        }
+                        disabled={locked}
+                        className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
+                        placeholder="Your answer"
+                      />
+                    </label>
+                  ))}
+
+                  {err && (
+                    <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      {err}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={busy || locked}
+                    className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
+                  >
+                    <span className="relative z-10">{busy ? "Verifying…" : "Verify identity"}</span>
+                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <p className="mt-4 text-sm text-white/60">
+                  Identity confirmed.{" "}
+                  {mode === "signin"
+                    ? "Enter your owner credentials to continue."
+                    : "Create the owner account (first account only)."}
+                </p>
+                <form onSubmit={submitCreds} className="mt-6 space-y-4">
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+                      Email
+                    </span>
+                    <div className="relative mt-1.5">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                      <input
+                        autoFocus
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={locked}
+                        className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
+                        placeholder="owner@email.com"
+                        autoComplete="email"
+                      />
+                    </div>
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+                      Password
+                    </span>
+                    <div className="relative mt-1.5">
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                      <input
+                        type="password"
+                        value={pass}
+                        onChange={(e) => setPass(e.target.value)}
+                        disabled={locked}
+                        className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
+                        placeholder="••••••••••"
+                        autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                      />
+                    </div>
+                  </label>
+
+                  {err && (
+                    <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      {err}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={busy || locked}
+                    className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
+                  >
+                    <span className="relative z-10">
+                      {busy
+                        ? "Verifying…"
+                        : mode === "signup"
+                          ? "Create owner account"
+                          : "Enter dashboard"}
+                    </span>
+                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode((m) => (m === "signin" ? "signup" : "signin"));
+                      setErr(null);
+                    }}
+                    className="w-full text-center text-[11px] text-white/50 hover:text-white"
+                  >
+                    {mode === "signin"
+                      ? "First time here? Create the owner account →"
+                      : "← Back to sign in"}
+                  </button>
+                </form>
+              </>
+            )}
+
+            {attemptsLeft !== null && attemptsLeft < 5 && attemptsLeft > 0 && !locked && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
+                <AlertTriangle className="h-3.5 w-3.5" /> {attemptsLeft} attempt
+                {attemptsLeft === 1 ? "" : "s"} left before temporary lockout.
+              </div>
+            )}
+
+            <div className="mt-6 flex items-center justify-between text-[11px] text-white/40">
+              <Link to="/" className="hover:text-white">
+                ← Back to site
+              </Link>
+              <span>Monitored area</span>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
   const [step, setStep] = useState<"questions" | "creds">("questions");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [user, setUser] = useState("");
