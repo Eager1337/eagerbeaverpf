@@ -146,12 +146,14 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <PortfolioOsSettingsProvider>
         <ContentStoreProvider>
-          <MotionConfig reducedMotion="user">
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-            <CommandPalette />
-            <GlobalSiteTools />
-          </MotionConfig>
+          <InvestorModeProvider>
+            <MotionConfig reducedMotion="user">
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+              <CommandPalette />
+              <GlobalSiteTools />
+            </MotionConfig>
+          </InvestorModeProvider>
         </ContentStoreProvider>
       </PortfolioOsSettingsProvider>
     </QueryClientProvider>
