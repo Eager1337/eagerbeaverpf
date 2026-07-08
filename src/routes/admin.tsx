@@ -571,7 +571,8 @@ type TabKey =
   | "explore"
   | "landings"
   | "portfolio"
-  | "intruders";
+  | "intruders"
+  | "privacy";
 
 const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
@@ -582,6 +583,7 @@ const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "landings", label: "Landing Pages", icon: Rocket },
   { key: "portfolio", label: "Portfolio Bio", icon: User },
   { key: "intruders", label: "Security / Intruders", icon: ShieldAlert },
+  { key: "privacy", label: "Privacy Controls", icon: Clock },
 ];
 
 
