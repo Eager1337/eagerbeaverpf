@@ -17,6 +17,7 @@ import { GlobalSiteTools } from "../components/GlobalSiteTools";
 import { PortfolioOsSettingsProvider, bumpSession } from "../lib/portfolio-os-settings";
 import { registerPortfolioOsSw } from "../lib/register-sw";
 import { ContentStoreProvider } from "../lib/content-store";
+import { InvestorModeProvider } from "../lib/investor-mode";
 
 function NotFoundComponent() {
   return (
