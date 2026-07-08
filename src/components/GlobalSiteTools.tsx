@@ -14,7 +14,10 @@ export function GlobalSiteTools() {
   const [query, setQuery] = useState("");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const navigate = useNavigate();
+  const location = useLocation();
   const { projects, legends, landings } = useContent();
+  const { investorMode, toggle: toggleInvestor, hydrated: investorHydrated } = useInvestorMode();
+  const onAbout = location.pathname === "/portfolio";
 
   useEffect(() => {
     const saved = window.localStorage.getItem("portfolio-theme-mode") as "dark" | "light" | null;
