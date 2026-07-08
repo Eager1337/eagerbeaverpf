@@ -60,6 +60,32 @@ export function GlobalSiteTools() {
 
   return (
     <>
+      <AnimatePresence>
+        {investorHydrated && investorMode && (
+          <motion.div
+            initial={{ y: -60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -60, opacity: 0 }}
+            className="fixed inset-x-0 top-0 z-[130] border-b border-amber-300/40 bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 text-black shadow-xl"
+          >
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-6 gap-y-1 px-4 py-2 text-center text-[12px] font-semibold sm:text-sm">
+              <span className="inline-flex items-center gap-1.5">
+                <TrendingUp className="h-4 w-4" /> Investor Mode
+              </span>
+              <span className="opacity-80">Ships production apps in weeks, not months</span>
+              <span className="opacity-80">50+ features across 52 shipped pages</span>
+              <span className="opacity-80">Full-stack · systems · measurable impact</span>
+              <button
+                onClick={toggleInvestor}
+                className="rounded-full bg-black/85 px-3 py-1 text-[11px] font-bold text-amber-300 hover:bg-black"
+              >
+                Exit
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="fixed bottom-3 left-3 right-3 z-[120] grid grid-cols-[auto_auto_1fr] items-center gap-2 sm:left-auto sm:right-4 sm:flex sm:w-auto">
         <button
           onClick={() => setSearchOpen(true)}
