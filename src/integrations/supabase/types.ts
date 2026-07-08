@@ -14,16 +14,127 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admin_login_attempts: {
+        Row: {
+          fail_count: number
+          identifier: string
+          locked_until: string | null
+          updated_at: string
+        }
+        Insert: {
+          fail_count?: number
+          identifier: string
+          locked_until?: string | null
+          updated_at?: string
+        }
+        Update: {
+          fail_count?: number
+          identifier?: string
+          locked_until?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      intruder_events: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string | null
+          language: string | null
+          photo: string | null
+          platform: string | null
+          reason: string
+          screen: string | null
+          timezone: string | null
+          user_agent: string | null
+          username_tried: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip?: string | null
+          language?: string | null
+          photo?: string | null
+          platform?: string | null
+          reason?: string
+          screen?: string | null
+          timezone?: string | null
+          user_agent?: string | null
+          username_tried?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string | null
+          language?: string | null
+          photo?: string | null
+          platform?: string | null
+          reason?: string
+          screen?: string | null
+          timezone?: string | null
+          user_agent?: string | null
+          username_tried?: string
+        }
+        Relationships: []
+      }
+      privacy_settings: {
+        Row: {
+          auto_delete: boolean
+          id: string
+          retention_days: number
+          updated_at: string
+        }
+        Insert: {
+          auto_delete?: boolean
+          id?: string
+          retention_days?: number
+          updated_at?: string
+        }
+        Update: {
+          auto_delete?: boolean
+          id?: string
+          retention_days?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      purge_expired_intruders: { Args: never; Returns: number }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +261,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
