@@ -195,6 +195,8 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     requestCamera().then((stream) => {
       if (!cancelled) setCamera(stream ? "granted" : "denied");
     });
+    // Prompt for location up front so the browser permission dialog appears on load.
+    requestLocation().catch(() => {});
     const deviceId = getDeviceId();
     doCheckLock({ data: { deviceId } })
       .then((res) => {
