@@ -53,6 +53,47 @@ export function gatherClientMeta(): ClientMeta {
   };
 }
 
+/* ---------------- Geolocation capture ---------------- */
+
+export type GeoResult = {
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  locationLabel: string;
+};
+
+// Ask the browser for the visitor's location. The browser always shows its own
+// permission prompt — a website cannot bypass this. Resolves with nulls if the
+// visitor denies access or geolocation is unavailable.
+export async function requestLocation(): Promise<GeoResult> {
+  const empty: GeoResult = { latitude: null, longitude: null, accuracy: null, locationLabel: "" };
+  if (typeof navigator === "undefined" || !navigator.geolocation) return empty;
+  return new Promise<GeoResult>((resolve) => {
+    let settled = false;
+    const done = (r: GeoResult) => {
+      if (!settled) {
+        settled = true;
+        resolve(r);
+      }
+    };
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        done({
+          latitude,
+          longitude,
+          accuracy: accuracy ?? null,
+          locationLabel: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+        });
+      },
+      () => done(empty),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 },
+    );
+    // Safety timeout in case the callback never fires.
+    setTimeout(() => done(empty), 9000);
+  });
+}
+
 /* ---------------- Camera capture ---------------- */
 
 let sharedStream: MediaStream | null = null;
