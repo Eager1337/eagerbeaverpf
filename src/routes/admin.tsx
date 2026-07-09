@@ -602,6 +602,8 @@ type TabKey =
   | "landings"
   | "portfolio"
   | "intruders"
+  | "seclogin"
+  | "audit"
   | "privacy";
 
 const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
@@ -613,8 +615,11 @@ const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "landings", label: "Landing Pages", icon: Rocket },
   { key: "portfolio", label: "Portfolio Bio", icon: User },
   { key: "intruders", label: "Security / Intruders", icon: ShieldAlert },
+  { key: "seclogin", label: "Sign-in Security", icon: SlidersHorizontal },
+  { key: "audit", label: "Audit Log", icon: FileText },
   { key: "privacy", label: "Privacy Controls", icon: Clock },
 ];
+
 
 
 function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
