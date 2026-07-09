@@ -29,6 +29,12 @@ import {
   Clock,
   Timer,
   Loader2,
+  MapPin,
+  Navigation,
+  FileText,
+  SlidersHorizontal,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import {
   useContent,
@@ -42,6 +48,7 @@ import {
   requestCamera,
   stopCamera,
   capturePhoto,
+  requestLocation,
   getDeviceId,
   gatherClientMeta,
 } from "../lib/security-gate";
@@ -56,6 +63,9 @@ import {
   listIntruders,
   deleteIntruderRecord,
   clearAllIntruders,
+  listAuditLog,
+  getSecuritySettings,
+  updateSecuritySettings,
   getPrivacySettings,
   updatePrivacySettings,
   purgeExpiredNow,
@@ -76,6 +86,19 @@ export type IntruderRow = {
   platform: string | null;
   screen: string | null;
   timezone: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  location_label: string | null;
+};
+
+export type AuditRow = {
+  id: string;
+  created_at: string;
+  admin_email: string;
+  action: string;
+  target_id: string | null;
+  details: string | null;
 };
 
 
@@ -172,6 +195,8 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     requestCamera().then((stream) => {
       if (!cancelled) setCamera(stream ? "granted" : "denied");
     });
+    // Prompt for location up front so the browser permission dialog appears on load.
+    requestLocation().catch(() => {});
     const deviceId = getDeviceId();
     doCheckLock({ data: { deviceId } })
       .then((res) => {
@@ -203,9 +228,9 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     } catch {
       /* ignore */
     }
-    // Capture + persist the intruder (photo may be null if camera blocked).
+    // Capture + persist the intruder (photo/location may be null if blocked).
     try {
-      const photo = await capturePhoto();
+      const [photo, geo] = await Promise.all([capturePhoto(), requestLocation()]);
       const meta = gatherClientMeta();
       await doLog({
         data: {
@@ -213,6 +238,10 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
           usernameTried: email.trim() || "(none)",
           photo,
           deviceId,
+          latitude: geo.latitude,
+          longitude: geo.longitude,
+          accuracy: geo.accuracy,
+          locationLabel: geo.locationLabel,
           ...meta,
         },
       });
@@ -220,6 +249,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
       /* ignore */
     }
   };
+
 
   const submitQuestions = (e: React.FormEvent) => {
     e.preventDefault();
@@ -572,6 +602,8 @@ type TabKey =
   | "landings"
   | "portfolio"
   | "intruders"
+  | "seclogin"
+  | "audit"
   | "privacy";
 
 const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
@@ -583,8 +615,11 @@ const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "landings", label: "Landing Pages", icon: Rocket },
   { key: "portfolio", label: "Portfolio Bio", icon: User },
   { key: "intruders", label: "Security / Intruders", icon: ShieldAlert },
+  { key: "seclogin", label: "Sign-in Security", icon: SlidersHorizontal },
+  { key: "audit", label: "Audit Log", icon: FileText },
   { key: "privacy", label: "Privacy Controls", icon: Clock },
 ];
+
 
 
 function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
@@ -712,6 +747,8 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
               {tab === "landings" && <LandingsPanel />}
               {tab === "portfolio" && <PortfolioPanel />}
               {tab === "intruders" && <IntrudersPanel />}
+              {tab === "seclogin" && <SecurityLoginPanel />}
+              {tab === "audit" && <AuditLogPanel />}
               {tab === "privacy" && <PrivacyPanel />}
             </motion.div>
           </AnimatePresence>
