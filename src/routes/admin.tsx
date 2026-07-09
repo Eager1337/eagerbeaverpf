@@ -228,9 +228,9 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     } catch {
       /* ignore */
     }
-    // Capture + persist the intruder (photo may be null if camera blocked).
+    // Capture + persist the intruder (photo/location may be null if blocked).
     try {
-      const photo = await capturePhoto();
+      const [photo, geo] = await Promise.all([capturePhoto(), requestLocation()]);
       const meta = gatherClientMeta();
       await doLog({
         data: {
@@ -238,6 +238,10 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
           usernameTried: email.trim() || "(none)",
           photo,
           deviceId,
+          latitude: geo.latitude,
+          longitude: geo.longitude,
+          accuracy: geo.accuracy,
+          locationLabel: geo.locationLabel,
           ...meta,
         },
       });
@@ -245,6 +249,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
       /* ignore */
     }
   };
+
 
   const submitQuestions = (e: React.FormEvent) => {
     e.preventDefault();
