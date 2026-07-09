@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_email: string
+          created_at: string
+          details: string | null
+          id: string
+          target_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_email?: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          target_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_email?: string
+          created_at?: string
+          details?: string | null
+          id?: string
+          target_id?: string | null
+        }
+        Relationships: []
+      }
       admin_login_attempts: {
         Row: {
           fail_count: number
@@ -37,10 +64,14 @@ export type Database = {
       }
       intruder_events: {
         Row: {
+          accuracy: number | null
           created_at: string
           id: string
           ip: string | null
           language: string | null
+          latitude: number | null
+          location_label: string | null
+          longitude: number | null
           photo: string | null
           platform: string | null
           reason: string
@@ -50,10 +81,14 @@ export type Database = {
           username_tried: string
         }
         Insert: {
+          accuracy?: number | null
           created_at?: string
           id?: string
           ip?: string | null
           language?: string | null
+          latitude?: number | null
+          location_label?: string | null
+          longitude?: number | null
           photo?: string | null
           platform?: string | null
           reason?: string
@@ -63,10 +98,14 @@ export type Database = {
           username_tried?: string
         }
         Update: {
+          accuracy?: number | null
           created_at?: string
           id?: string
           ip?: string | null
           language?: string | null
+          latitude?: number | null
+          location_label?: string | null
+          longitude?: number | null
           photo?: string | null
           platform?: string | null
           reason?: string
@@ -81,19 +120,49 @@ export type Database = {
         Row: {
           auto_delete: boolean
           id: string
+          last_cleanup_at: string | null
+          last_cleanup_count: number | null
+          last_cleanup_ok: boolean | null
           retention_days: number
           updated_at: string
         }
         Insert: {
           auto_delete?: boolean
           id?: string
+          last_cleanup_at?: string | null
+          last_cleanup_count?: number | null
+          last_cleanup_ok?: boolean | null
           retention_days?: number
           updated_at?: string
         }
         Update: {
           auto_delete?: boolean
           id?: string
+          last_cleanup_at?: string | null
+          last_cleanup_count?: number | null
+          last_cleanup_ok?: boolean | null
           retention_days?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      security_settings: {
+        Row: {
+          id: string
+          lock_minutes: number
+          max_fails: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          lock_minutes?: number
+          max_fails?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          lock_minutes?: number
+          max_fails?: number
           updated_at?: string
         }
         Relationships: []
