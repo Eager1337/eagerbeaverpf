@@ -29,6 +29,12 @@ import {
   Clock,
   Timer,
   Loader2,
+  MapPin,
+  Navigation,
+  FileText,
+  SlidersHorizontal,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import {
   useContent,
@@ -42,6 +48,7 @@ import {
   requestCamera,
   stopCamera,
   capturePhoto,
+  requestLocation,
   getDeviceId,
   gatherClientMeta,
 } from "../lib/security-gate";
@@ -56,6 +63,9 @@ import {
   listIntruders,
   deleteIntruderRecord,
   clearAllIntruders,
+  listAuditLog,
+  getSecuritySettings,
+  updateSecuritySettings,
   getPrivacySettings,
   updatePrivacySettings,
   purgeExpiredNow,
@@ -76,6 +86,19 @@ export type IntruderRow = {
   platform: string | null;
   screen: string | null;
   timezone: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  location_label: string | null;
+};
+
+export type AuditRow = {
+  id: string;
+  created_at: string;
+  admin_email: string;
+  action: string;
+  target_id: string | null;
+  details: string | null;
 };
 
 
