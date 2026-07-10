@@ -2173,4 +2173,237 @@ function PrivacyPanel() {
   );
 }
 
+/* ---------------- Sign-in security panel (configurable brute-force) ---------------- */
+
+function SecurityLoginPanel() {
+  const [maxFails, setMaxFails] = useState(5);
+  const [lockMinutes, setLockMinutes] = useState(15);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const fetchSettings = useServerFn(getSecuritySettings);
+  const saveSettings = useServerFn(updateSecuritySettings);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSettings()
+      .then((s) => {
+        if (cancelled) return;
+        setMaxFails(s.maxFails);
+        setLockMinutes(s.lockMinutes);
+        setUpdatedAt(s.updatedAt);
+      })
+      .catch(() => {})
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchSettings]);
+
+  const save = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await saveSettings({ data: { maxFails, lockMinutes } });
+      setUpdatedAt(new Date().toISOString());
+      setMsg("Brute-force protection updated ✓");
+    } catch {
+      setMsg("Could not save settings.");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <>
+      <div className="mb-5">
+        <h2 className="text-xl font-bold" style={{ fontFamily: "'Kanit', sans-serif" }}>
+          Sign-in security
+        </h2>
+        <p className="mt-1 text-sm text-white/50">
+          Tune brute-force protection for the admin sign-in. After the maximum number of failed
+          attempts, that device is locked out for the cooldown period.
+        </p>
+      </div>
+
+      {loading ? (
+        <Card>
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/50">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          <Card>
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <ShieldAlert className="h-4 w-4 text-fuchsia-300" /> Max failed attempts before lockout
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <input
+                type="range"
+                min={1}
+                max={20}
+                value={maxFails}
+                onChange={(e) => setMaxFails(Number(e.target.value))}
+                className="flex-1 accent-fuchsia-500"
+              />
+              <span className="w-10 text-right text-sm font-bold text-white">{maxFails}</span>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Timer className="h-4 w-4 text-sky-300" /> Lockout duration (minutes)
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <input
+                type="range"
+                min={1}
+                max={240}
+                value={lockMinutes}
+                onChange={(e) => setLockMinutes(Number(e.target.value))}
+                className="flex-1 accent-sky-500"
+              />
+              <span className="w-14 text-right text-sm font-bold text-white">{lockMinutes}m</span>
+            </div>
+          </Card>
+
+          {msg && (
+            <div className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/70">
+              {msg}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={save}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-fuchsia-500 to-sky-500 px-5 py-2.5 text-xs font-semibold text-white shadow-lg shadow-fuchsia-500/30 disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              Save protection
+            </button>
+            {updatedAt && (
+              <span className="text-[11px] text-white/40">
+                Last updated {new Date(updatedAt).toLocaleString()}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ---------------- Audit log panel ---------------- */
+
+const AUDIT_LABELS: Record<string, string> = {
+  viewed_intruders: "Viewed intruder captures",
+  deleted_intruder: "Deleted a capture",
+  cleared_all_intruders: "Cleared all captures",
+  purged_expired: "Purged expired captures",
+  updated_security_settings: "Updated sign-in security",
+  updated_privacy_settings: "Updated privacy settings",
+};
+
+function AuditLogPanel() {
+  const [records, setRecords] = useState<AuditRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLog = useServerFn(listAuditLog);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchLog();
+      setRecords(res.records as AuditRow[]);
+    } catch {
+      setError("Could not load the audit log.");
+    }
+    setLoading(false);
+  }, [fetchLog]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return (
+    <>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold" style={{ fontFamily: "'Kanit', sans-serif" }}>
+            Audit log
+          </h2>
+          <p className="mt-1 text-sm text-white/50">
+            Every time an admin views, deletes, or purges intruder captures — or changes security
+            settings — it is recorded here with a timestamp and the acting admin email.
+          </p>
+        </div>
+        <button
+          onClick={refresh}
+          className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold hover:bg-white/10"
+        >
+          <RotateCcw className="h-3.5 w-3.5" /> Refresh
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <Card>
+          <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/50">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading log…
+          </div>
+        </Card>
+      ) : records.length === 0 ? (
+        <Card>
+          <div className="flex flex-col items-center gap-3 py-10 text-center text-white/50">
+            <FileText className="h-10 w-10 text-white/30" />
+            <p className="text-sm">No admin actions recorded yet.</p>
+          </div>
+        </Card>
+      ) : (
+        <Card className="p-0 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-white/10 text-white/40">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">When</th>
+                  <th className="px-4 py-3 font-semibold">Admin</th>
+                  <th className="px-4 py-3 font-semibold">Action</th>
+                  <th className="px-4 py-3 font-semibold">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {records.map((r) => (
+                  <tr key={r.id} className="border-b border-white/5 hover:bg-white/[0.03]">
+                    <td className="whitespace-nowrap px-4 py-3 text-white/60">
+                      {new Date(r.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-white/80">{r.admin_email || "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/80">
+                        {AUDIT_LABELS[r.action] ?? r.action}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-white/50">{r.details || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </>
+  );
+}
+
+
 
