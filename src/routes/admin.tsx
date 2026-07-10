@@ -2145,6 +2145,8 @@ function PrivacyPanel() {
     try {
       const res = await doPurge();
       setMsg(`Purged ${res.deleted} old capture${res.deleted === 1 ? "" : "s"} ✓`);
+      const refreshed = await fetchSettings();
+      applySettings(refreshed);
     } catch {
       setMsg("Could not purge now.");
     }
