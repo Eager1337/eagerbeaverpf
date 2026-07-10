@@ -1879,6 +1879,38 @@ function IntrudersPanel() {
     }
   };
 
+  const exportCsv = () => {
+    const cols: (keyof IntruderRow)[] = [
+      "id",
+      "created_at",
+      "reason",
+      "username_tried",
+      "photo",
+      "ip",
+      "latitude",
+      "longitude",
+      "accuracy",
+      "location_label",
+      "platform",
+      "screen",
+      "language",
+      "timezone",
+      "user_agent",
+    ];
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const rows = [
+      cols.join(","),
+      ...records.map((r) => cols.map((c) => esc(r[c])).join(",")),
+    ];
+    const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `intruders-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -1901,6 +1933,14 @@ function IntrudersPanel() {
           </button>
           {records.length > 0 && (
             <button
+              onClick={exportCsv}
+              className="inline-flex items-center gap-2 rounded-full border border-sky-400/40 bg-sky-500/10 px-4 py-2 text-xs font-semibold text-sky-200 hover:bg-sky-500/20"
+            >
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </button>
+          )}
+          {records.length > 0 && (
+            <button
               onClick={clearAll}
               className="inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/10 px-4 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20"
             >
@@ -1909,6 +1949,7 @@ function IntrudersPanel() {
           )}
         </div>
       </div>
+
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
