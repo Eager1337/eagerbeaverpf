@@ -2072,6 +2072,10 @@ function PrivacyPanel() {
   const [autoDelete, setAutoDelete] = useState(false);
   const [retentionDays, setRetentionDays] = useState(0);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [nextPurgeAt, setNextPurgeAt] = useState<string | null>(null);
+  const [lastCleanupAt, setLastCleanupAt] = useState<string | null>(null);
+  const [lastCleanupCount, setLastCleanupCount] = useState<number | null>(null);
+  const [lastCleanupOk, setLastCleanupOk] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [purging, setPurging] = useState(false);
@@ -2081,21 +2085,41 @@ function PrivacyPanel() {
   const saveSettings = useServerFn(updatePrivacySettings);
   const doPurge = useServerFn(purgeExpiredNow);
 
+  const applySettings = useCallback(
+    (s: {
+      autoDelete: boolean;
+      retentionDays: number;
+      updatedAt: string | null;
+      nextPurgeAt: string | null;
+      lastCleanupAt: string | null;
+      lastCleanupCount: number | null;
+      lastCleanupOk: boolean | null;
+    }) => {
+      setAutoDelete(s.autoDelete);
+      setRetentionDays(s.retentionDays);
+      setUpdatedAt(s.updatedAt);
+      setNextPurgeAt(s.nextPurgeAt);
+      setLastCleanupAt(s.lastCleanupAt);
+      setLastCleanupCount(s.lastCleanupCount);
+      setLastCleanupOk(s.lastCleanupOk);
+    },
+    [],
+  );
+
   useEffect(() => {
     let cancelled = false;
     fetchSettings()
       .then((s) => {
         if (cancelled) return;
-        setAutoDelete(s.autoDelete);
-        setRetentionDays(s.retentionDays);
-        setUpdatedAt(s.updatedAt);
+        applySettings(s);
       })
       .catch(() => {})
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [fetchSettings]);
+  }, [fetchSettings, applySettings]);
+
 
   const save = async () => {
     setSaving(true);
