@@ -2004,13 +2004,32 @@ function IntrudersPanel() {
                   <div className="truncate" title={r.user_agent ?? ""}>
                     💻 {r.platform || "?"} · {r.screen}
                   </div>
+                  {r.latitude != null && r.longitude != null && (
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3 text-emerald-300" />
+                      {r.location_label || `${r.latitude.toFixed(5)}, ${r.longitude.toFixed(5)}`}
+                    </div>
+                  )}
                 </div>
-                <button
-                  onClick={() => removeOne(r.id)}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10"
-                >
-                  <Trash2 className="h-3 w-3" /> Delete
-                </button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {r.latitude != null && r.longitude != null && (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${r.latitude},${r.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/20"
+                    >
+                      <Navigation className="h-3 w-3" /> Directions
+                    </a>
+                  )}
+                  <button
+                    onClick={() => removeOne(r.id)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10"
+                  >
+                    <Trash2 className="h-3 w-3" /> Delete
+                  </button>
+                </div>
+
               </div>
             </Card>
           ))}
