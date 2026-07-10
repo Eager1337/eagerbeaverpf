@@ -2224,6 +2224,42 @@ function PrivacyPanel() {
             )}
           </Card>
 
+          <Card>
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <Clock className="h-4 w-4 text-emerald-300" /> Cleanup schedule &amp; history
+            </div>
+            <div className="mt-3 space-y-2 text-[11px] text-white/60">
+              <div className="flex items-center gap-2">
+                <Timer className="h-3.5 w-3.5 text-sky-300" />
+                Next scheduled purge:{" "}
+                <span className="font-semibold text-white/80">
+                  {autoDelete && nextPurgeAt
+                    ? new Date(nextPurgeAt).toLocaleString()
+                    : "Not scheduled (auto-delete off or no retention set)"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {lastCleanupOk == null ? (
+                  <Clock className="h-3.5 w-3.5 text-white/30" />
+                ) : lastCleanupOk ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                ) : (
+                  <XCircle className="h-3.5 w-3.5 text-red-400" />
+                )}
+                Last cleanup:{" "}
+                <span className="font-semibold text-white/80">
+                  {lastCleanupAt
+                    ? `${new Date(lastCleanupAt).toLocaleString()} — ${
+                        lastCleanupOk ? "success" : "failed"
+                      }, ${lastCleanupCount ?? 0} removed`
+                    : "Never run yet"}
+                </span>
+              </div>
+            </div>
+          </Card>
+
+
+
           {msg && (
             <div className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/70">
               {msg}
