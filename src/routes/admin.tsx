@@ -68,6 +68,13 @@ import {
   updatePrivacySettings,
   purgeExpiredNow,
 } from "../lib/security.functions";
+import { ownerLogin } from "../lib/owner-auth.functions";
+import {
+  listPortfolioAssets,
+  uploadPortfolioAsset,
+  deletePortfolioAsset,
+} from "../lib/portfolio-assets.functions";
+import { ASSET_POINTERS, refreshAssetOverrides, SmartImage } from "../lib/assets";
 import type { Legend } from "../data/legends";
 import type { Project, ProjectCategory } from "../data/projects";
 import { CATEGORIES } from "../data/projects";
