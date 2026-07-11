@@ -555,6 +555,7 @@ type TabKey =
   | "explore"
   | "landings"
   | "portfolio"
+  | "assets"
   | "intruders"
   | "seclogin"
   | "audit"
