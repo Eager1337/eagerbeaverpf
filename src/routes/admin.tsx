@@ -43,8 +43,6 @@ import {
   type CustomLanding,
 } from "../lib/content-store";
 import {
-  SECURITY_QUESTIONS,
-  checkSecurityAnswers,
   requestCamera,
   stopCamera,
   capturePhoto,
