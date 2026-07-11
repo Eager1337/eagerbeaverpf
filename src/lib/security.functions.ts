@@ -77,23 +77,27 @@ export const logIntruder = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const ip = clientIdentifier(data.deviceId);
-    const { error } = await supabaseAdmin.from("intruder_events").insert({
-      reason: data.reason,
-      username_tried: data.usernameTried,
-      photo: data.photo,
-      ip,
-      user_agent: data.userAgent,
-      language: data.language,
-      platform: data.platform,
-      screen: data.screen,
-      timezone: data.timezone,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      accuracy: data.accuracy,
-      location_label: data.locationLabel || null,
-    });
+    const { data: inserted, error } = await supabaseAdmin
+      .from("intruder_events")
+      .insert({
+        reason: data.reason,
+        username_tried: data.usernameTried,
+        photo: data.photo,
+        ip,
+        user_agent: data.userAgent,
+        language: data.language,
+        platform: data.platform,
+        screen: data.screen,
+        timezone: data.timezone,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        accuracy: data.accuracy,
+        location_label: data.locationLabel || null,
+      })
+      .select("id")
+      .single();
     if (error) throw new Error(error.message);
-    return { ok: true };
+    return { ok: true, id: inserted?.id ?? null };
   });
 
 /* ---------------- Brute-force lockout (public) ---------------- */
