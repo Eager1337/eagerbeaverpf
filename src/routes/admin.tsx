@@ -569,6 +569,7 @@ const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "explore", label: "Explore Projects", icon: Compass },
   { key: "landings", label: "Landing Pages", icon: Rocket },
   { key: "portfolio", label: "Portfolio Bio", icon: User },
+  { key: "assets", label: "Image Manager", icon: ImageIcon },
   { key: "intruders", label: "Security / Intruders", icon: ShieldAlert },
   { key: "seclogin", label: "Sign-in Security", icon: SlidersHorizontal },
   { key: "audit", label: "Audit Log", icon: FileText },
