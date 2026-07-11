@@ -1,3 +1,4 @@
+import { SmartImage } from "../lib/assets";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {

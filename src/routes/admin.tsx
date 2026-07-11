@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { motion, AnimatePresence } from "framer-motion";
 import JSZip from "jszip";
@@ -43,8 +43,6 @@ import {
   type CustomLanding,
 } from "../lib/content-store";
 import {
-  SECURITY_QUESTIONS,
-  checkSecurityAnswers,
   requestCamera,
   stopCamera,
   capturePhoto,
@@ -70,6 +68,13 @@ import {
   updatePrivacySettings,
   purgeExpiredNow,
 } from "../lib/security.functions";
+import { ownerLogin } from "../lib/owner-auth.functions";
+import {
+  listPortfolioAssets,
+  uploadPortfolioAsset,
+  deletePortfolioAsset,
+} from "../lib/portfolio-assets.functions";
+import { ASSET_POINTERS, refreshAssetOverrides, SmartImage } from "../lib/assets";
 import type { Legend } from "../data/legends";
 import type { Project, ProjectCategory } from "../data/projects";
 import { CATEGORIES } from "../data/projects";
@@ -169,36 +174,32 @@ function AdminGate() {
 /* ---------------- Sign-in ---------------- */
 
 function SignIn({ onAuthed }: { onAuthed: () => void }) {
-  const [step, setStep] = useState<"questions" | "creds">("questions");
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [email, setEmail] = useState("");
+  const [step, setStep] = useState<"permission" | "creds">("permission");
+  const [username, setUsername] = useState("");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [warned, setWarned] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [granting, setGranting] = useState(false);
   const [camera, setCamera] = useState<"idle" | "granted" | "denied">("idle");
+  const [geo, setGeo] = useState<"idle" | "granted" | "denied">("idle");
   const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
   const [lockSeconds, setLockSeconds] = useState(0);
+  const stagedIdRef = useRef<string | null>(null);
 
   const doLog = useServerFn(logIntruder);
   const doCheckLock = useServerFn(checkAdminLockout);
   const doRecordFail = useServerFn(recordAdminFailure);
   const doClearFail = useServerFn(clearAdminFailures);
-  const doClaim = useServerFn(claimAdminIfUnclaimed);
+  const doOwnerLogin = useServerFn(ownerLogin);
+  const doDeleteRecord = useServerFn(deleteIntruderRecord);
 
   const locked = lockSeconds > 0;
 
-  // Camera + lockout status on mount.
+  // Check lockout status on mount.
   useEffect(() => {
     let cancelled = false;
-    requestCamera().then((stream) => {
-      if (!cancelled) setCamera(stream ? "granted" : "denied");
-    });
-    // Prompt for location up front so the browser permission dialog appears on load.
-    requestLocation().catch(() => {});
-    const deviceId = getDeviceId();
-    doCheckLock({ data: { deviceId } })
+    doCheckLock({ data: { deviceId: getDeviceId() } })
       .then((res) => {
         if (cancelled) return;
         if (res.locked) setLockSeconds(res.secondsLeft);
@@ -217,55 +218,59 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     return () => clearInterval(t);
   }, [lockSeconds]);
 
+  // Capture a photo + location and persist it. Returns the new record id.
+  const captureAndLog = useCallback(
+    async (reason: string) => {
+      try {
+        const [photo, g] = await Promise.all([capturePhoto(), requestLocation()]);
+        const meta = gatherClientMeta();
+        const res = await doLog({
+          data: {
+            reason,
+            usernameTried: username.trim() || "(none)",
+            photo,
+            deviceId: getDeviceId(),
+            latitude: g.latitude,
+            longitude: g.longitude,
+            accuracy: g.accuracy,
+            locationLabel: g.locationLabel,
+            ...meta,
+          },
+        });
+        return res.id ?? null;
+      } catch {
+        return null;
+      }
+    },
+    [doLog, username],
+  );
+
+  // Step 1 — visitor must grant camera + location before the login form appears.
+  const grantAccess = async () => {
+    if (granting) return;
+    setGranting(true);
+    setErr(null);
+    const stream = await requestCamera();
+    setCamera(stream ? "granted" : "denied");
+    const g = await requestLocation();
+    setGeo(g.latitude != null ? "granted" : "denied");
+    // Capture immediately on permission — even before any credentials are typed.
+    const id = await captureAndLog("Admin sign-in opened");
+    stagedIdRef.current = id;
+    setStep("creds");
+    setGranting(false);
+  };
+
   const triggerIntruder = async (reason: string) => {
     setWarned(true);
-    const deviceId = getDeviceId();
-    // Record the failed attempt for lockout accounting.
     try {
-      const res = await doRecordFail({ data: { deviceId } });
+      const res = await doRecordFail({ data: { deviceId: getDeviceId() } });
       setAttemptsLeft(res.attemptsRemaining);
       if (res.locked) setLockSeconds(res.secondsLeft);
     } catch {
       /* ignore */
     }
-    // Capture + persist the intruder (photo/location may be null if blocked).
-    try {
-      const [photo, geo] = await Promise.all([capturePhoto(), requestLocation()]);
-      const meta = gatherClientMeta();
-      await doLog({
-        data: {
-          reason,
-          usernameTried: email.trim() || "(none)",
-          photo,
-          deviceId,
-          latitude: geo.latitude,
-          longitude: geo.longitude,
-          accuracy: geo.accuracy,
-          locationLabel: geo.locationLabel,
-          ...meta,
-        },
-      });
-    } catch {
-      /* ignore */
-    }
-  };
-
-
-  const submitQuestions = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (locked) return;
-    setBusy(true);
-    setErr(null);
-    setTimeout(async () => {
-      if (checkSecurityAnswers(answers)) {
-        setStep("creds");
-        setWarned(false);
-      } else {
-        setErr("One or more security answers are incorrect.");
-        await triggerIntruder("Failed security questions");
-      }
-      setBusy(false);
-    }, 250);
+    await captureAndLog(reason);
   };
 
   const submitCreds = async (e: React.FormEvent) => {
@@ -274,46 +279,31 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     setBusy(true);
     setErr(null);
     try {
-      if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: pass,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) {
-          setErr(error.message);
-          setBusy(false);
-          return;
-        }
-        if (!data.session) {
-          setErr("Account created. Please confirm your email, then sign in.");
-          setMode("signin");
-          setBusy(false);
-          return;
-        }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: pass,
-        });
-        if (error) {
-          setErr("Wrong email or password.");
-          await triggerIntruder("Wrong email or password");
-          setBusy(false);
-          return;
-        }
+      const res = await doOwnerLogin({
+        data: { username: username.trim(), password: pass },
+      });
+      if (!res.ok) {
+        setErr(res.error ?? "Wrong username or password.");
+        await triggerIntruder("Wrong admin username/password");
+        setBusy(false);
+        return;
       }
-
-      // Session established — verify (or claim) owner privileges.
-      const claim = await doClaim();
-      if (claim.isAdmin) {
-        await doClearFail({ data: { deviceId: getDeviceId() } });
-        onAuthed();
-      } else {
-        await supabase.auth.signOut();
-        setErr("This account is not authorized to access the admin panel.");
-        await triggerIntruder("Unauthorized account access");
+      const { error } = await supabase.auth.setSession({
+        access_token: res.access_token!,
+        refresh_token: res.refresh_token!,
+      });
+      if (error) {
+        setErr("Could not establish a session. Please try again.");
+        setBusy(false);
+        return;
       }
+      // Success — clear lockout counters and remove the owner's own capture.
+      await doClearFail({ data: { deviceId: getDeviceId() } }).catch(() => {});
+      if (stagedIdRef.current) {
+        await doDeleteRecord({ data: { id: stagedIdRef.current } }).catch(() => {});
+        stagedIdRef.current = null;
+      }
+      onAuthed();
     } catch {
       setErr("Something went wrong. Please try again.");
     }
@@ -326,7 +316,6 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050510] text-white">
-      {/* animated gradient background */}
       <div
         className="absolute inset-0 opacity-70"
         style={{
@@ -343,8 +332,6 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
           maskImage: "radial-gradient(ellipse at center, black 40%, transparent 75%)",
         }}
       />
-
-      {/* floating orbs */}
       {[0, 1, 2].map((i) => (
         <motion.div
           key={i}
@@ -386,29 +373,38 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
               </div>
             </div>
 
-            {/* camera / security status */}
-            <div
-              className={`mt-4 flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] ${
-                camera === "granted"
-                  ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                  : camera === "denied"
-                    ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
-                    : "border-white/15 bg-white/5 text-white/60"
-              }`}
-            >
-              {camera === "granted" ? (
-                <Camera className="h-3.5 w-3.5" />
-              ) : (
-                <CameraOff className="h-3.5 w-3.5" />
-              )}
-              {camera === "granted"
-                ? "Security camera active — this area is monitored."
-                : camera === "denied"
-                  ? "Camera access is required to continue. Failed attempts are still logged."
-                  : "Requesting camera access for security verification…"}
+            {/* camera / location status */}
+            <div className="mt-4 grid grid-cols-2 gap-2 text-[11px]">
+              <div
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  camera === "granted"
+                    ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                    : camera === "denied"
+                      ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                      : "border-white/15 bg-white/5 text-white/60"
+                }`}
+              >
+                {camera === "granted" ? (
+                  <Camera className="h-3.5 w-3.5" />
+                ) : (
+                  <CameraOff className="h-3.5 w-3.5" />
+                )}
+                {camera === "granted" ? "Camera on" : camera === "denied" ? "Camera off" : "Camera"}
+              </div>
+              <div
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  geo === "granted"
+                    ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                    : geo === "denied"
+                      ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                      : "border-white/15 bg-white/5 text-white/60"
+                }`}
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                {geo === "granted" ? "Location on" : geo === "denied" ? "Location off" : "Location"}
+              </div>
             </div>
 
-            {/* lockout banner */}
             {locked && (
               <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-500/15 px-3 py-3 text-xs text-red-200">
                 <Timer className="h-4 w-4 shrink-0 text-red-400" />
@@ -422,7 +418,6 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
               </div>
             )}
 
-            {/* intruder warning */}
             <AnimatePresence>
               {warned && (
                 <motion.div
@@ -438,9 +433,8 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
                         ⚠️ Unauthorized access detected
                       </div>
                       <p className="mt-1 leading-relaxed text-red-200/90">
-                        Your photo, device details, IP fingerprint and location data have been
-                        captured and reported to the owner's security dashboard. Leave this page
-                        immediately — continued tampering will be prosecuted.
+                        Your photo, device details, IP fingerprint and location have been captured
+                        and reported to the owner's security dashboard. Leave this page immediately.
                       </p>
                     </div>
                   </div>
@@ -448,70 +442,46 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
               )}
             </AnimatePresence>
 
-            {step === "questions" ? (
+            {step === "permission" ? (
               <>
-                <p className="mt-4 text-sm text-white/60">
-                  Answer the security questions to prove you are the owner.
+                <p className="mt-5 text-sm text-white/70">
+                  This is a monitored area. To continue you must allow camera and location access.
+                  Access is recorded the moment permission is granted.
                 </p>
-                <form onSubmit={submitQuestions} className="mt-6 space-y-4">
-                  {SECURITY_QUESTIONS.map((q, i) => (
-                    <label key={q.id} className="block">
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
-                        Question {i + 1}
-                      </span>
-                      <span className="mt-1 block text-sm text-white/80">{q.question}</span>
-                      <input
-                        value={answers[q.id] ?? ""}
-                        onChange={(e) =>
-                          setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                        }
-                        disabled={locked}
-                        className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
-                        placeholder="Your answer"
-                      />
-                    </label>
-                  ))}
-
-                  {err && (
-                    <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                      {err}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={busy || locked}
-                    className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
-                  >
-                    <span className="relative z-10">{busy ? "Verifying…" : "Verify identity"}</span>
-                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-                  </button>
-                </form>
+                <button
+                  type="button"
+                  onClick={grantAccess}
+                  disabled={granting || locked}
+                  className="group relative mt-6 w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
+                >
+                  <span className="relative z-10">
+                    {granting ? "Requesting access…" : "Allow camera & location to continue"}
+                  </span>
+                </button>
+                <p className="mt-3 text-center text-[11px] text-white/40">
+                  Your browser will ask for permission. Failed or denied attempts are still logged.
+                </p>
               </>
             ) : (
               <>
-                <p className="mt-4 text-sm text-white/60">
-                  Identity confirmed.{" "}
-                  {mode === "signin"
-                    ? "Enter your owner credentials to continue."
-                    : "Create the owner account (first account only)."}
+                <p className="mt-5 text-sm text-white/60">
+                  Enter your owner username and password to open the dashboard.
                 </p>
                 <form onSubmit={submitCreds} className="mt-6 space-y-4">
                   <label className="block">
                     <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
-                      Email
+                      Username
                     </span>
                     <div className="relative mt-1.5">
-                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                      <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
                       <input
                         autoFocus
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
                         disabled={locked}
                         className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
-                        placeholder="owner@email.com"
-                        autoComplete="email"
+                        placeholder="Username"
+                        autoComplete="username"
                       />
                     </div>
                   </label>
@@ -528,7 +498,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
                         disabled={locked}
                         className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
                         placeholder="••••••••••"
-                        autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                        autoComplete="current-password"
                       />
                     </div>
                   </label>
@@ -545,26 +515,9 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
                     className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
                   >
                     <span className="relative z-10">
-                      {busy
-                        ? "Verifying…"
-                        : mode === "signup"
-                          ? "Create owner account"
-                          : "Enter dashboard"}
+                      {busy ? "Verifying…" : "Enter dashboard"}
                     </span>
                     <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMode((m) => (m === "signin" ? "signup" : "signin"));
-                      setErr(null);
-                    }}
-                    className="w-full text-center text-[11px] text-white/50 hover:text-white"
-                  >
-                    {mode === "signin"
-                      ? "First time here? Create the owner account →"
-                      : "← Back to sign in"}
                   </button>
                 </form>
               </>
@@ -591,6 +544,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
 }
 
 
+
 /* ---------------- Dashboard ---------------- */
 
 type TabKey =
@@ -601,6 +555,7 @@ type TabKey =
   | "explore"
   | "landings"
   | "portfolio"
+  | "assets"
   | "intruders"
   | "seclogin"
   | "audit"
@@ -614,6 +569,7 @@ const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "explore", label: "Explore Projects", icon: Compass },
   { key: "landings", label: "Landing Pages", icon: Rocket },
   { key: "portfolio", label: "Portfolio Bio", icon: User },
+  { key: "assets", label: "Image Manager", icon: ImageIcon },
   { key: "intruders", label: "Security / Intruders", icon: ShieldAlert },
   { key: "seclogin", label: "Sign-in Security", icon: SlidersHorizontal },
   { key: "audit", label: "Audit Log", icon: FileText },
@@ -746,6 +702,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
               {tab === "explore" && <ExplorePanel />}
               {tab === "landings" && <LandingsPanel />}
               {tab === "portfolio" && <PortfolioPanel />}
+              {tab === "assets" && <AssetManagerPanel />}
               {tab === "intruders" && <IntrudersPanel />}
               {tab === "seclogin" && <SecurityLoginPanel />}
               {tab === "audit" && <AuditLogPanel />}
@@ -1792,6 +1749,126 @@ function LandingsPanel() {
 }
 
 /* ---------------- Portfolio Bio Panel ---------------- */
+
+function AssetManagerPanel() {
+  const doList = useServerFn(listPortfolioAssets);
+  const doUpload = useServerFn(uploadPortfolioAsset);
+  const doDelete = useServerFn(deletePortfolioAsset);
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await doList();
+      const map: Record<string, string> = {};
+      for (const a of res.assets) map[a.key] = a.url;
+      setOverrides(map);
+    } catch {
+      /* ignore */
+    }
+  }, [doList]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onFile = async (key: string, file: File) => {
+    if (file.size > 8_000_000) {
+      setMsg("Image too large — please use one under 8 MB.");
+      return;
+    }
+    setBusyKey(key);
+    setMsg(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(new Error("read failed"));
+        r.readAsDataURL(file);
+      });
+      await doUpload({ data: { key, dataUrl } });
+      await refreshAssetOverrides();
+      await load();
+      setMsg(`Updated ${key} ✓`);
+    } catch {
+      setMsg(`Failed to upload ${key}.`);
+    }
+    setBusyKey(null);
+  };
+
+  const onReset = async (key: string) => {
+    setBusyKey(key);
+    try {
+      await doDelete({ data: { key } });
+      await refreshAssetOverrides();
+      await load();
+      setMsg(`Reset ${key} to built-in image.`);
+    } catch {
+      setMsg(`Failed to reset ${key}.`);
+    }
+    setBusyKey(null);
+  };
+
+  return (
+    <div>
+      <SectionHeader
+        title="Image Manager"
+        subtitle="Upload your own images for each slot. Uploaded images instantly replace the placeholders across the site."
+      />
+      {msg && (
+        <div className="mb-4 rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-xs text-fuchsia-200">
+          {msg}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {ASSET_POINTERS.map((p) => {
+          const key = p.original_filename;
+          const current = overrides[key] ?? p.url;
+          return (
+            <Card key={key} className="flex flex-col gap-3">
+              <div className="aspect-square overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                <SmartImage
+                  src={current}
+                  alt={key}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="truncate text-[11px] text-white/60" title={key}>
+                {key}
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex-1 cursor-pointer">
+                  <span className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-sky-500 px-2 py-1.5 text-[11px] font-semibold text-white">
+                    <Upload className="h-3 w-3" />
+                    {busyKey === key ? "Uploading…" : "Upload"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={busyKey === key}
+                    onChange={(e) => e.target.files?.[0] && onFile(key, e.target.files[0])}
+                  />
+                </label>
+                {overrides[key] && (
+                  <button
+                    onClick={() => onReset(key)}
+                    disabled={busyKey === key}
+                    className="rounded-lg border border-white/15 bg-white/5 p-1.5 text-white/60 hover:bg-white/10"
+                    title="Reset to built-in"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function PortfolioPanel() {
   const { bio, update } = useContent();

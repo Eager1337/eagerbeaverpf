@@ -1,3 +1,4 @@
+import { SmartImage } from "../lib/assets";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { useContent } from "../lib/content-store";

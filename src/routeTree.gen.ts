@@ -37,6 +37,7 @@ import { Route as PortfolioOsSlugRouteImport } from './routes/portfolio-os.$slug
 import { Route as LegendsSlugRouteImport } from './routes/legends.$slug'
 import { Route as LandingSlugRouteImport } from './routes/landing.$slug'
 import { Route as ExploreSlugRouteImport } from './routes/explore.$slug'
+import { Route as ApiPublicMediaKeyRouteImport } from './routes/api/public/media.$key'
 
 const SkyeliteRoute = SkyeliteRouteImport.update({
   id: '/skyelite',
@@ -178,6 +179,11 @@ const ExploreSlugRoute = ExploreSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => ExploreRoute,
 } as any)
+const ApiPublicMediaKeyRoute = ApiPublicMediaKeyRouteImport.update({
+  id: '/api/public/media/$key',
+  path: '/api/public/media/$key',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -208,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/legends/': typeof LegendsIndexRoute
   '/portfolio-os/': typeof PortfolioOsIndexRoute
   '/skyelite/': typeof SkyeliteIndexRoute
+  '/api/public/media/$key': typeof ApiPublicMediaKeyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -235,6 +242,7 @@ export interface FileRoutesByTo {
   '/legends': typeof LegendsIndexRoute
   '/portfolio-os': typeof PortfolioOsIndexRoute
   '/skyelite': typeof SkyeliteIndexRoute
+  '/api/public/media/$key': typeof ApiPublicMediaKeyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -266,6 +274,7 @@ export interface FileRoutesById {
   '/legends/': typeof LegendsIndexRoute
   '/portfolio-os/': typeof PortfolioOsIndexRoute
   '/skyelite/': typeof SkyeliteIndexRoute
+  '/api/public/media/$key': typeof ApiPublicMediaKeyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -298,6 +307,7 @@ export interface FileRouteTypes {
     | '/legends/'
     | '/portfolio-os/'
     | '/skyelite/'
+    | '/api/public/media/$key'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -325,6 +335,7 @@ export interface FileRouteTypes {
     | '/legends'
     | '/portfolio-os'
     | '/skyelite'
+    | '/api/public/media/$key'
   id:
     | '__root__'
     | '/'
@@ -355,6 +366,7 @@ export interface FileRouteTypes {
     | '/legends/'
     | '/portfolio-os/'
     | '/skyelite/'
+    | '/api/public/media/$key'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -374,6 +386,7 @@ export interface RootRouteChildren {
   WorkDeckRoute: typeof WorkDeckRoute
   WorkIosRoute: typeof WorkIosRoute
   WorkTaskoraRoute: typeof WorkTaskoraRoute
+  ApiPublicMediaKeyRoute: typeof ApiPublicMediaKeyRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -574,6 +587,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExploreSlugRouteImport
       parentRoute: typeof ExploreRoute
     }
+    '/api/public/media/$key': {
+      id: '/api/public/media/$key'
+      path: '/api/public/media/$key'
+      fullPath: '/api/public/media/$key'
+      preLoaderRoute: typeof ApiPublicMediaKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -656,7 +676,18 @@ const rootRouteChildren: RootRouteChildren = {
   WorkDeckRoute: WorkDeckRoute,
   WorkIosRoute: WorkIosRoute,
   WorkTaskoraRoute: WorkTaskoraRoute,
+  ApiPublicMediaKeyRoute: ApiPublicMediaKeyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

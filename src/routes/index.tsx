@@ -1,3 +1,4 @@
+import { SmartImage } from "../lib/assets";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { ArrowLeft, ArrowRight, ArrowUpRight, Award, Code2, Crown, GitFork, Github, Sparkles, Star, X } from "lucide-react";
