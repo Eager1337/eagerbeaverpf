@@ -116,6 +116,30 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_assets: {
+        Row: {
+          content_type: string | null
+          created_at: string
+          key: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          content_type?: string | null
+          created_at?: string
+          key: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          content_type?: string | null
+          created_at?: string
+          key?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       privacy_settings: {
         Row: {
           auto_delete: boolean
