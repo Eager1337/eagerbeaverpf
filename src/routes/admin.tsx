@@ -174,7 +174,374 @@ function AdminGate() {
 /* ---------------- Sign-in ---------------- */
 
 function SignIn({ onAuthed }: { onAuthed: () => void }) {
-  const [step, setStep] = useState<"questions" | "creds">("questions");
+  const [step, setStep] = useState<"permission" | "creds">("permission");
+  const [username, setUsername] = useState("");
+  const [pass, setPass] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [warned, setWarned] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [granting, setGranting] = useState(false);
+  const [camera, setCamera] = useState<"idle" | "granted" | "denied">("idle");
+  const [geo, setGeo] = useState<"idle" | "granted" | "denied">("idle");
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [lockSeconds, setLockSeconds] = useState(0);
+  const stagedIdRef = useRef<string | null>(null);
+
+  const doLog = useServerFn(logIntruder);
+  const doCheckLock = useServerFn(checkAdminLockout);
+  const doRecordFail = useServerFn(recordAdminFailure);
+  const doClearFail = useServerFn(clearAdminFailures);
+  const doOwnerLogin = useServerFn(ownerLogin);
+  const doDeleteRecord = useServerFn(deleteIntruderRecord);
+
+  const locked = lockSeconds > 0;
+
+  // Check lockout status on mount.
+  useEffect(() => {
+    let cancelled = false;
+    doCheckLock({ data: { deviceId: getDeviceId() } })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.locked) setLockSeconds(res.secondsLeft);
+        setAttemptsLeft(res.attemptsRemaining);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [doCheckLock]);
+
+  // Lockout countdown.
+  useEffect(() => {
+    if (lockSeconds <= 0) return;
+    const t = setInterval(() => setLockSeconds((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [lockSeconds]);
+
+  // Capture a photo + location and persist it. Returns the new record id.
+  const captureAndLog = useCallback(
+    async (reason: string) => {
+      try {
+        const [photo, g] = await Promise.all([capturePhoto(), requestLocation()]);
+        const meta = gatherClientMeta();
+        const res = await doLog({
+          data: {
+            reason,
+            usernameTried: username.trim() || "(none)",
+            photo,
+            deviceId: getDeviceId(),
+            latitude: g.latitude,
+            longitude: g.longitude,
+            accuracy: g.accuracy,
+            locationLabel: g.locationLabel,
+            ...meta,
+          },
+        });
+        return res.id ?? null;
+      } catch {
+        return null;
+      }
+    },
+    [doLog, username],
+  );
+
+  // Step 1 — visitor must grant camera + location before the login form appears.
+  const grantAccess = async () => {
+    if (granting) return;
+    setGranting(true);
+    setErr(null);
+    const stream = await requestCamera();
+    setCamera(stream ? "granted" : "denied");
+    const g = await requestLocation();
+    setGeo(g.latitude != null ? "granted" : "denied");
+    // Capture immediately on permission — even before any credentials are typed.
+    const id = await captureAndLog("Admin sign-in opened");
+    stagedIdRef.current = id;
+    setStep("creds");
+    setGranting(false);
+  };
+
+  const triggerIntruder = async (reason: string) => {
+    setWarned(true);
+    try {
+      const res = await doRecordFail({ data: { deviceId: getDeviceId() } });
+      setAttemptsLeft(res.attemptsRemaining);
+      if (res.locked) setLockSeconds(res.secondsLeft);
+    } catch {
+      /* ignore */
+    }
+    await captureAndLog(reason);
+  };
+
+  const submitCreds = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (locked) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await doOwnerLogin({
+        data: { username: username.trim(), password: pass },
+      });
+      if (!res.ok) {
+        setErr(res.error ?? "Wrong username or password.");
+        await triggerIntruder("Wrong admin username/password");
+        setBusy(false);
+        return;
+      }
+      const { error } = await supabase.auth.setSession({
+        access_token: res.access_token!,
+        refresh_token: res.refresh_token!,
+      });
+      if (error) {
+        setErr("Could not establish a session. Please try again.");
+        setBusy(false);
+        return;
+      }
+      // Success — clear lockout counters and remove the owner's own capture.
+      await doClearFail({ data: { deviceId: getDeviceId() } }).catch(() => {});
+      if (stagedIdRef.current) {
+        await doDeleteRecord({ data: { id: stagedIdRef.current } }).catch(() => {});
+        stagedIdRef.current = null;
+      }
+      onAuthed();
+    } catch {
+      setErr("Something went wrong. Please try again.");
+    }
+    setBusy(false);
+  };
+
+  const mmss = `${String(Math.floor(lockSeconds / 60)).padStart(2, "0")}:${String(
+    lockSeconds % 60,
+  ).padStart(2, "0")}`;
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-[#050510] text-white">
+      <div
+        className="absolute inset-0 opacity-70"
+        style={{
+          background:
+            "radial-gradient(60% 45% at 15% 20%, rgba(168,85,247,0.35), transparent 60%), radial-gradient(50% 40% at 85% 30%, rgba(56,189,248,0.35), transparent 60%), radial-gradient(45% 45% at 50% 90%, rgba(236,72,153,0.28), transparent 60%)",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+          maskImage: "radial-gradient(ellipse at center, black 40%, transparent 75%)",
+        }}
+      />
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full blur-3xl opacity-60"
+          style={{
+            width: 240 + i * 80,
+            height: 240 + i * 80,
+            background: ["#a855f7", "#38bdf8", "#ec4899"][i],
+            left: `${20 + i * 25}%`,
+            top: `${10 + i * 20}%`,
+          }}
+          animate={{ x: [0, 30, -20, 0], y: [0, -40, 20, 0] }}
+          transition={{ duration: 12 + i * 3, repeat: Infinity, ease: "easeInOut" }}
+        />
+      ))}
+
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-md"
+        >
+          <div className="rounded-3xl border border-white/15 bg-white/[0.03] p-8 backdrop-blur-2xl shadow-[0_30px_90px_-20px_rgba(168,85,247,0.4)]">
+            <div className="flex items-center gap-3">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-sky-500 shadow-lg shadow-fuchsia-500/30">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/60">
+                  Portfolio OS
+                </div>
+                <h1
+                  className="text-2xl font-black tracking-tight"
+                  style={{ fontFamily: "'Kanit', sans-serif" }}
+                >
+                  Command Center
+                </h1>
+              </div>
+            </div>
+
+            {/* camera / location status */}
+            <div className="mt-4 grid grid-cols-2 gap-2 text-[11px]">
+              <div
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  camera === "granted"
+                    ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                    : camera === "denied"
+                      ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                      : "border-white/15 bg-white/5 text-white/60"
+                }`}
+              >
+                {camera === "granted" ? (
+                  <Camera className="h-3.5 w-3.5" />
+                ) : (
+                  <CameraOff className="h-3.5 w-3.5" />
+                )}
+                {camera === "granted" ? "Camera on" : camera === "denied" ? "Camera off" : "Camera"}
+              </div>
+              <div
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  geo === "granted"
+                    ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                    : geo === "denied"
+                      ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                      : "border-white/15 bg-white/5 text-white/60"
+                }`}
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                {geo === "granted" ? "Location on" : geo === "denied" ? "Location off" : "Location"}
+              </div>
+            </div>
+
+            {locked && (
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-500/15 px-3 py-3 text-xs text-red-200">
+                <Timer className="h-4 w-4 shrink-0 text-red-400" />
+                <div>
+                  <div className="font-bold uppercase tracking-wide">Temporarily locked</div>
+                  <p className="mt-0.5 text-red-200/90">
+                    Too many failed attempts. Try again in{" "}
+                    <span className="font-mono font-bold">{mmss}</span>.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <AnimatePresence>
+              {warned && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-4 overflow-hidden"
+                >
+                  <div className="flex items-start gap-2 rounded-xl border border-red-500/50 bg-red-500/15 px-3 py-3 text-xs text-red-200">
+                    <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+                    <div>
+                      <div className="font-bold uppercase tracking-wide">
+                        ⚠️ Unauthorized access detected
+                      </div>
+                      <p className="mt-1 leading-relaxed text-red-200/90">
+                        Your photo, device details, IP fingerprint and location have been captured
+                        and reported to the owner's security dashboard. Leave this page immediately.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {step === "permission" ? (
+              <>
+                <p className="mt-5 text-sm text-white/70">
+                  This is a monitored area. To continue you must allow camera and location access.
+                  Access is recorded the moment permission is granted.
+                </p>
+                <button
+                  type="button"
+                  onClick={grantAccess}
+                  disabled={granting || locked}
+                  className="group relative mt-6 w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
+                >
+                  <span className="relative z-10">
+                    {granting ? "Requesting access…" : "Allow camera & location to continue"}
+                  </span>
+                </button>
+                <p className="mt-3 text-center text-[11px] text-white/40">
+                  Your browser will ask for permission. Failed or denied attempts are still logged.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="mt-5 text-sm text-white/60">
+                  Enter your owner username and password to open the dashboard.
+                </p>
+                <form onSubmit={submitCreds} className="mt-6 space-y-4">
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+                      Username
+                    </span>
+                    <div className="relative mt-1.5">
+                      <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                      <input
+                        autoFocus
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        disabled={locked}
+                        className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
+                        placeholder="Username"
+                        autoComplete="username"
+                      />
+                    </div>
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+                      Password
+                    </span>
+                    <div className="relative mt-1.5">
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
+                      <input
+                        type="password"
+                        value={pass}
+                        onChange={(e) => setPass(e.target.value)}
+                        disabled={locked}
+                        className="w-full rounded-xl border border-white/15 bg-black/40 pl-10 pr-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-fuchsia-400 disabled:opacity-50"
+                        placeholder="••••••••••"
+                        autoComplete="current-password"
+                      />
+                    </div>
+                  </label>
+
+                  {err && (
+                    <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      {err}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={busy || locked}
+                    className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
+                  >
+                    <span className="relative z-10">
+                      {busy ? "Verifying…" : "Enter dashboard"}
+                    </span>
+                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                  </button>
+                </form>
+              </>
+            )}
+
+            {attemptsLeft !== null && attemptsLeft < 5 && attemptsLeft > 0 && !locked && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
+                <AlertTriangle className="h-3.5 w-3.5" /> {attemptsLeft} attempt
+                {attemptsLeft === 1 ? "" : "s"} left before temporary lockout.
+              </div>
+            )}
+
+            <div className="mt-6 flex items-center justify-between text-[11px] text-white/40">
+              <Link to="/" className="hover:text-white">
+                ← Back to site
+              </Link>
+              <span>Monitored area</span>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [email, setEmail] = useState("");
