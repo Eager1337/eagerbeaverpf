@@ -1750,6 +1750,126 @@ function LandingsPanel() {
 
 /* ---------------- Portfolio Bio Panel ---------------- */
 
+function AssetManagerPanel() {
+  const doList = useServerFn(listPortfolioAssets);
+  const doUpload = useServerFn(uploadPortfolioAsset);
+  const doDelete = useServerFn(deletePortfolioAsset);
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await doList();
+      const map: Record<string, string> = {};
+      for (const a of res.assets) map[a.key] = a.url;
+      setOverrides(map);
+    } catch {
+      /* ignore */
+    }
+  }, [doList]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const onFile = async (key: string, file: File) => {
+    if (file.size > 8_000_000) {
+      setMsg("Image too large — please use one under 8 MB.");
+      return;
+    }
+    setBusyKey(key);
+    setMsg(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(new Error("read failed"));
+        r.readAsDataURL(file);
+      });
+      await doUpload({ data: { key, dataUrl } });
+      await refreshAssetOverrides();
+      await load();
+      setMsg(`Updated ${key} ✓`);
+    } catch {
+      setMsg(`Failed to upload ${key}.`);
+    }
+    setBusyKey(null);
+  };
+
+  const onReset = async (key: string) => {
+    setBusyKey(key);
+    try {
+      await doDelete({ data: { key } });
+      await refreshAssetOverrides();
+      await load();
+      setMsg(`Reset ${key} to built-in image.`);
+    } catch {
+      setMsg(`Failed to reset ${key}.`);
+    }
+    setBusyKey(null);
+  };
+
+  return (
+    <div>
+      <SectionHeader
+        title="Image Manager"
+        subtitle="Upload your own images for each slot. Uploaded images instantly replace the placeholders across the site."
+      />
+      {msg && (
+        <div className="mb-4 rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-xs text-fuchsia-200">
+          {msg}
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {ASSET_POINTERS.map((p) => {
+          const key = p.original_filename;
+          const current = overrides[key] ?? p.url;
+          return (
+            <Card key={key} className="flex flex-col gap-3">
+              <div className="aspect-square overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                <SmartImage
+                  src={current}
+                  alt={key}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="truncate text-[11px] text-white/60" title={key}>
+                {key}
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex-1 cursor-pointer">
+                  <span className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-sky-500 px-2 py-1.5 text-[11px] font-semibold text-white">
+                    <Upload className="h-3 w-3" />
+                    {busyKey === key ? "Uploading…" : "Upload"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={busyKey === key}
+                    onChange={(e) => e.target.files?.[0] && onFile(key, e.target.files[0])}
+                  />
+                </label>
+                {overrides[key] && (
+                  <button
+                    onClick={() => onReset(key)}
+                    disabled={busyKey === key}
+                    className="rounded-lg border border-white/15 bg-white/5 p-1.5 text-white/60 hover:bg-white/10"
+                    title="Reset to built-in"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function PortfolioPanel() {
   const { bio, update } = useContent();
   const patch = (p: Partial<typeof bio>) => update({ bio: { ...bio, ...p } });
