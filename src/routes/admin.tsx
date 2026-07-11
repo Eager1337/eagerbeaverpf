@@ -702,6 +702,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
               {tab === "explore" && <ExplorePanel />}
               {tab === "landings" && <LandingsPanel />}
               {tab === "portfolio" && <PortfolioPanel />}
+              {tab === "assets" && <AssetManagerPanel />}
               {tab === "intruders" && <IntrudersPanel />}
               {tab === "seclogin" && <SecurityLoginPanel />}
               {tab === "audit" && <AuditLogPanel />}
