@@ -88,7 +88,7 @@ function LegendPage() {
           {others.map((l) => (
             <Link key={l.slug} to="/legends/$slug" params={{ slug: l.slug }} className="group overflow-hidden rounded-2xl border border-white/10 hover:border-white/40">
               <div className="aspect-[16/10] relative overflow-hidden bg-black">
-                <img src={l.image} alt={l.title} loading="lazy" className="h-full w-full object-cover object-center opacity-90 group-hover:scale-105 transition-transform duration-500" />
+                <SmartImage src={l.image} alt={l.title} loading="lazy" className="h-full w-full object-cover object-center opacity-90 group-hover:scale-105 transition-transform duration-500" />
               </div>
               <div className="p-3">
                 <div className="text-sm font-semibold">{l.title}</div>
@@ -179,7 +179,7 @@ function WalkLoop({ img, accent }: { img: string; accent: string }) {
 function MirrorLoop({ img }: { img: string; accent: string }) {
   return (
     <>
-      <img src={img} alt="" className={base} />
+      <SmartImage src={img} alt="" className={base} />
       <motion.div className="absolute inset-0 pointer-events-none"
         style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.05), transparent 40%, transparent 60%, rgba(255,255,255,0.05))" }}
         animate={{ opacity: [0.5, 1, 0.5] }}
@@ -220,7 +220,7 @@ function SwingLoop({ img }: { img: string; accent: string }) {
 function EyeGlowLoop({ img, accent }: { img: string; accent: string }) {
   return (
     <>
-      <img src={img} alt="" className={base} />
+      <SmartImage src={img} alt="" className={base} />
       <motion.div className="absolute inset-0"
         style={{ background: `radial-gradient(circle at 42% 35%, ${accent}88, transparent 12%), radial-gradient(circle at 62% 35%, ${accent}88, transparent 12%)`, mixBlendMode: "screen" }}
         animate={{ opacity: [0.3, 1, 0.3] }}
@@ -233,7 +233,7 @@ function EyeGlowLoop({ img, accent }: { img: string; accent: string }) {
 function HoopLoop({ img, accent }: { img: string; accent: string }) {
   return (
     <>
-      <img src={img} alt="" className={base} />
+      <SmartImage src={img} alt="" className={base} />
       <svg viewBox="0 0 400 500" className="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid meet">
         <motion.circle
           r="14" fill={accent} stroke="#fff" strokeWidth="2"
