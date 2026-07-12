@@ -260,7 +260,7 @@ function PortfolioPage() {
                 aria-hidden
               />
               <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#1A1410]">
-                <img
+                <SmartImage
                   key={current.url}
                   src={current.url}
                   alt="Alusine G. Dumbuya, Eager Beaver"
