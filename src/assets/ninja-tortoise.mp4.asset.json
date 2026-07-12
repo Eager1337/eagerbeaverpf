@@ -1,9 +1,11 @@
 {
   "version": 1,
-  "asset_id": "da7a0ce4-f4c5-40c6-87f8-bc6943f4c40d",
-  "project_id": "d931576d-107c-4871-8f0a-4f5208a40322",
-  "url": "/__l5e/assets-v1/da7a0ce4-f4c5-40c6-87f8-bc6943f4c40d/ninja-tortoise.mp4",
+  "asset_id": "ca2d0fb8-7372-4137-8cd0-aad654f46c31",
+  "project_id": "bf91bf69-a7ea-41dc-b08b-c103dc4cc26d",
+  "url": "/__l5e/assets-v1/ca2d0fb8-7372-4137-8cd0-aad654f46c31/ninja-tortoise.mp4",
+  "r2_key": "a/v1/bf91bf69-a7ea-41dc-b08b-c103dc4cc26d/ca2d0fb8-7372-4137-8cd0-aad654f46c31/ninja-tortoise.mp4",
   "original_filename": "ninja-tortoise.mp4",
-  "size": 8631482,
-  "created_at": "2026-06-30T17:01:22Z"
+  "size": 11456613,
+  "content_type": "video/mp4",
+  "created_at": "2026-07-12T17:31:58Z"
 }
