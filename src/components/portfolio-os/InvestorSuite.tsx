@@ -25,7 +25,7 @@ export function InvestorSuite() {
         Investor Suite
       </h1>
       <p className="mt-3 max-w-2xl text-white/70">
-        Everything an investor needs to evaluate the work — chat, analytics, accessibility, and a live proposal estimator.
+        Everything an investor needs to evaluate the work, chat, analytics, accessibility, and a live proposal estimator.
       </p>
 
       <div className="mt-8 flex flex-wrap gap-2 border-b border-white/10 pb-3">
@@ -61,7 +61,7 @@ interface Msg { role: "user" | "assistant"; text: string; refs?: { label: string
 function AssistantPanel() {
   const { t } = useOsSettings();
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", text: "Hi — I'm the Portfolio OS assistant. Ask me about projects, features, or which pages best fit your investor thesis. Try: 'best AI projects', 'show medical work', or 'what proves traction?'" },
+    { role: "assistant", text: "Hi, I'm the Portfolio OS assistant. Ask me about projects, features, or which pages best fit your investor thesis. Try: 'best AI projects', 'show medical work', or 'what proves traction?'" },
   ]);
   const [input, setInput] = useState("");
   const boxRef = useRef<HTMLDivElement>(null);
@@ -83,7 +83,7 @@ function AssistantPanel() {
     }
     if (/traction|metric|kpi|growth|revenue|users?/.test(s)) {
       const strong = [...PROJECTS].sort((a, b) => b.metrics.length - a.metrics.length).slice(0, 4);
-      return { role: "assistant", text: "Projects with the clearest traction metrics:", refs: strong.map((p) => ({ label: `${p.title} — ${p.metrics[0]?.value ?? "—"} ${p.metrics[0]?.label ?? ""}`, to: `/explore/${p.slug}` })) };
+      return { role: "assistant", text: "Projects with the clearest traction metrics:", refs: strong.map((p) => ({ label: `${p.title}, ${p.metrics[0]?.value ?? "-"} ${p.metrics[0]?.label ?? ""}`, to: `/explore/${p.slug}` })) };
     }
     if (/feature|capability|what can/.test(s)) {
       const live = FEATURES.filter((f) => f.status === "live").slice(0, 5);
@@ -175,7 +175,7 @@ function AnalyticsPanel() {
         <Kpi label="Sessions" value={a.sessions} />
         <Kpi label="Project views" value={totalViews} />
         <Kpi label="Feature clicks" value={totalFeatureClicks} />
-        <Kpi label="Since" value={a.firstSeen ? new Date(a.firstSeen).toLocaleDateString() : "—"} isText />
+        <Kpi label="Since" value={a.firstSeen ? new Date(a.firstSeen).toLocaleDateString() : "-"} isText />
       </div>
 
       <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -194,7 +194,7 @@ function AnalyticsPanel() {
           </div>
         </div>
         {topProjects.length === 0 ? (
-          <p className="text-sm text-white/50">No data yet — open projects from <Link to="/explore" className="underline">Explore</Link> to populate.</p>
+          <p className="text-sm text-white/50">No data yet, open projects from <Link to="/explore" className="underline">Explore</Link> to populate.</p>
         ) : (
           <div className="space-y-2">
             {topProjects.map(([slug, n]) => {
@@ -361,7 +361,7 @@ function EstimatorPanel() {
       s.analytics && "Analytics dashboard",
     ].filter(Boolean).join("\n- ");
 
-    const md = `# Proposal — Eager Beaver
+    const md = `# Proposal, Eager Beaver
 
 **Prepared for:** ${s.contact || "Client"}
 **Date:** ${new Date().toLocaleDateString()}

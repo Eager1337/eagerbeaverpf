@@ -7,9 +7,9 @@ import { IOSMessages } from "@/components/templates/IOSMessages";
 export const Route = createFileRoute("/work/ios")({
   head: () => ({
     meta: [
-      { title: "iOS template trio — Eager Beaver" },
+      { title: "iOS template trio, Eager Beaver" },
       { name: "description", content: "Animated iOS templates: flight tracker, push notifications and iMessage conversation." },
-      { property: "og:title", content: "iOS template trio — Eager Beaver" },
+      { property: "og:title", content: "iOS template trio, Eager Beaver" },
       { property: "og:description", content: "Flight tracker, push notifications and iMessage UI demos." },
     ],
   }),
@@ -33,7 +33,7 @@ function IOSShowcase() {
           iOS template<br /><span className="text-[#E63946]">trio.</span>
         </h1>
         <p className="mt-6 max-w-xl text-white/70">
-          Three drop-in components for travel, messaging and notification demos — animated, reusable and built to embed in product reels.
+          Three drop-in components for travel, messaging and notification demos, animated, reusable and built to embed in product reels.
         </p>
       </section>
 

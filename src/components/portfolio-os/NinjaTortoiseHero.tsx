@@ -98,7 +98,7 @@ export function NinjaTortoiseHero() {
           </Link>
         </motion.div>
 
-        {/* Stat strip — inline on mobile so it can't overlap the CTAs */}
+        {/* Stat strip, inline on mobile so it can't overlap the CTAs */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}

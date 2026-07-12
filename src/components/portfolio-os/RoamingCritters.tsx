@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 /**
- * Two little characters — a beaver 🦫 and an ant 🐜 — that wander around
+ * Two little characters, a beaver 🦫 and an ant 🐜, that wander around
  * the viewport. Fixed-position, pointer-events: none, so they never block UI.
  */
 export function RoamingCritters() {

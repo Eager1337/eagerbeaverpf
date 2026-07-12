@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { SectionPage } from "../components/skyelite/SectionPage";
 
 export const Route = createFileRoute("/skyelite/story")({
-  head: () => ({ meta: [{ title: "Our Story — SkyElite" }] }),
+  head: () => ({ meta: [{ title: "Our Story, SkyElite" }] }),
   component: () => (
     <SectionPage
       eyebrow="Our story"

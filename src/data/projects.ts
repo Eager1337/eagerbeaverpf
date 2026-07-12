@@ -1,4 +1,4 @@
-// 50 showcase projects — single source of truth for /explore grid and /explore/$slug detail
+// 50 showcase projects, single source of truth for /explore grid and /explore/$slug detail
 
 export type ProjectCategory =
   | "Education"
@@ -63,7 +63,7 @@ function make(
 export const PROJECTS: Project[] = [
   // EDUCATION
   make("university-erp", "University ERP", "Education", "Unified operating system for modern universities", "#6366f1", "#06b6d4",
-    "Universities run on 12+ disconnected systems for admissions, fees, exams, hostel, library and HR — students bounce between portals and staff re-enter data daily.",
+    "Universities run on 12+ disconnected systems for admissions, fees, exams, hostel, library and HR, students bounce between portals and staff re-enter data daily.",
     "A single ERP with role-based dashboards for students, lecturers, deans and finance, real-time exam analytics, integrated mobile money fees, and an audit-grade approval graph.",
     ["Next.js", "PostgreSQL", "Redis", "Prisma", "Tailwind", "Stripe"],
     ["Admissions pipeline", "Exam grade analytics", "Mobile-money fees", "Hostel allocation", "Role-based access", "Audit logs"],
@@ -74,7 +74,7 @@ export const PROJECTS: Project[] = [
     ["React", "Supabase", "OpenAI", "Tailwind"], ["AI grading", "Plagiarism check", "Parent SMS", "Kanban", "Late-submission scoring"],
     [["Hours saved/wk", "9.2"], ["Schools", "120"], ["Submissions", "1.2M"]]),
   make("student-workspace", "Student Workspace", "Education", "Notion-grade workspace built for students", "#f59e0b", "#ef4444",
-    "Students juggle 4–6 tools for notes, deadlines, group projects and resources — none of them speak to each other.",
+    "Students juggle 4–6 tools for notes, deadlines, group projects and resources, none of them speak to each other.",
     "One workspace: notes with /AI commands, shared group docs, syllabus import, focus timer and a calendar that pulls from school LMS.",
     ["Next.js", "tRPC", "Postgres", "Lexical", "AI"], ["AI notes", "Group docs", "Syllabus import", "Pomodoro", "LMS sync"],
     [["DAU", "28K"], ["Notes created", "4.1M"], ["Avg session", "47m"]]),
@@ -91,12 +91,12 @@ export const PROJECTS: Project[] = [
 
   // MEDICAL
   make("clinic-management", "Clinic Management", "Medical", "OS for small and mid-size clinics", "#0ea5e9", "#22c55e",
-    "Small clinics run on paper charts and Excel — appointments collide, prescriptions get lost, and reporting to ministries takes weeks.",
+    "Small clinics run on paper charts and Excel, appointments collide, prescriptions get lost, and reporting to ministries takes weeks.",
     "End-to-end clinic OS: appointments, e-prescriptions, billing, lab results, inventory and one-click ministry reports.",
     ["Next.js", "Postgres", "HL7 FHIR", "Twilio"], ["E-prescriptions", "Lab integration", "SMS reminders", "Insurance billing", "MoH reports"],
     [["Clinics", "230"], ["Visits/mo", "84K"], ["No-show drop", "-41%"]]),
   make("health-records", "Health Records", "Medical", "FHIR-compliant patient record vault", "#3b82f6", "#8b5cf6",
-    "Patient records are siloed per hospital — referrals lose history, duplicate tests waste money and risk lives.",
+    "Patient records are siloed per hospital, referrals lose history, duplicate tests waste money and risk lives.",
     "Patient-owned health vault with provider sharing, FHIR-native APIs, encrypted storage and consent receipts.",
     ["FHIR", "Postgres", "AES-256", "Next.js"], ["FHIR API", "Patient consent", "Audit trail", "Provider portal"],
     [["Records", "1.4M"], ["Providers", "320"]]),
@@ -128,7 +128,7 @@ export const PROJECTS: Project[] = [
     ["Next.js", "Postgres", "Stripe"], ["Pre-filled returns", "Refund tracker", "Audit console"],
     [["Filings", "1.1M"], ["Refund time", "5 days"]]),
   make("citizen-services", "Citizen Services", "Government", "One app for every government service", "#3b82f6", "#8b5cf6",
-    "Citizens don't know which agency handles which request — 311 lines are jammed.",
+    "Citizens don't know which agency handles which request, 311 lines are jammed.",
     "Discovery-first portal with smart routing, status tracking and SLA accountability for every request.",
     ["React Native", "Postgres", "Twilio"], ["Smart routing", "SLA tracking", "Citizen ratings"],
     [["Requests", "640K"], ["SLA met", "92%"]]),
@@ -199,7 +199,7 @@ export const PROJECTS: Project[] = [
 
   // AI
   make("ai-workspace", "AI Workspace", "AI", "Multiplayer canvas for AI work", "#ec4899", "#8b5cf6",
-    "AI work is locked in chat threads — nothing is reusable, sharable or composable.",
+    "AI work is locked in chat threads, nothing is reusable, sharable or composable.",
     "Canvas-based workspace where prompts, agents and outputs become reusable blocks teams can branch and remix.",
     ["Next.js", "tRPC", "Yjs", "Postgres"], ["Canvas", "Reusable blocks", "Branching", "Team comments"],
     [["Workspaces", "9.4K"], ["Blocks/day", "180K"]]),
@@ -241,7 +241,7 @@ export const PROJECTS: Project[] = [
     ["Next.js", "OpenAI", "Vercel"], ["AI builder", "Case studies", "Motion", "SEO"],
     [["Sites built", "41K"], ["Avg time", "8m"]]),
   make("membership-platform", "Membership Platform", "Creator", "Recurring revenue for creators", "#f97316", "#ef4444",
-    "Creators stitch Patreon + Discord + email — no single source of truth.",
+    "Creators stitch Patreon + Discord + email, no single source of truth.",
     "Subscriptions, gated content, community feed, courses and email all on one platform.",
     ["Next.js", "Stripe", "Postgres"], ["Tiers", "Gated content", "Courses", "Email"],
     [["Creators", "6.4K"], ["MRR routed", "$11M"]]),

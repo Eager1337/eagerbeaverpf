@@ -35,7 +35,7 @@ export const FEATURES: Feature[] = [
   { id: 20, name: "Media mentions", group: "Trust & Credibility", description: "Press, podcasts and interviews in one feed.", icon: "Megaphone", status: "live" },
 
   // Portfolio Intelligence
-  { id: 21, name: "AI project search", group: "Portfolio Intelligence", description: "Ask in plain English — finds the right case study.", icon: "Search", status: "live" },
+  { id: 21, name: "AI project search", group: "Portfolio Intelligence", description: "Ask in plain English, finds the right case study.", icon: "Search", status: "live" },
   { id: 22, name: "Recommendation engine", group: "Portfolio Intelligence", description: "Suggests projects based on what investors have viewed.", icon: "Sparkle", status: "live" },
   { id: 23, name: "Skill heatmap", group: "Portfolio Intelligence", description: "Color-coded heatmap of skills by depth of experience.", icon: "Grid3x3", status: "live" },
   { id: 24, name: "Tech stack explorer", group: "Portfolio Intelligence", description: "Interactive graph of every technology used across projects.", icon: "Cpu", status: "live" },
@@ -44,7 +44,7 @@ export const FEATURES: Feature[] = [
   { id: 27, name: "Compare projects mode", group: "Portfolio Intelligence", description: "Side-by-side compare any two case studies.", icon: "GitCompare", status: "live" },
   { id: 28, name: "Problem → Solution explorer", group: "Portfolio Intelligence", description: "Browse only by the problem you're trying to solve.", icon: "Lightbulb", status: "live" },
   { id: 29, name: "Architecture visualizer", group: "Portfolio Intelligence", description: "Interactive system diagrams per project.", icon: "Network", status: "live" },
-  { id: 30, name: "Investor mode toggle", group: "Portfolio Intelligence", description: "Surfaces only metrics, ROI and capability — hides fluff.", icon: "Crown", status: "live" },
+  { id: 30, name: "Investor mode toggle", group: "Portfolio Intelligence", description: "Surfaces only metrics, ROI and capability, hides fluff.", icon: "Crown", status: "live" },
 
   // Experience & Engagement
   { id: 31, name: "Full dark / light themes", group: "Experience & Engagement", description: "Auto-adapting theme with manual override.", icon: "SunMoon", status: "live" },
@@ -62,7 +62,7 @@ export const FEATURES: Feature[] = [
   { id: 41, name: "Book a project workflow", group: "Business & Conversion", description: "Multi-step workflow that scopes and prices a project.", icon: "Rocket", status: "live" },
   { id: 42, name: "Quote estimator", group: "Business & Conversion", description: "Real-time quote based on scope, timeline and platform.", icon: "DollarSign", status: "live" },
   { id: 43, name: "Service marketplace", group: "Business & Conversion", description: "Productized services with instant checkout.", icon: "ShoppingBag", status: "live" },
-  { id: 44, name: "Discovery call scheduler", group: "Business & Conversion", description: "Book a 30-min discovery call — auto-confirmed.", icon: "Calendar", status: "live" },
+  { id: 44, name: "Discovery call scheduler", group: "Business & Conversion", description: "Book a 30-min discovery call, auto-confirmed.", icon: "Calendar", status: "live" },
   { id: 45, name: "Investor inquiry form", group: "Business & Conversion", description: "Private form for investors with NDA option.", icon: "Briefcase", status: "live" },
   { id: 46, name: "Proposal generator", group: "Business & Conversion", description: "Auto-generates a signed proposal PDF from your brief.", icon: "FileSignature", status: "live" },
   { id: 47, name: "Collaboration portal", group: "Business & Conversion", description: "Client portal for active projects with milestones.", icon: "Users", status: "live" },

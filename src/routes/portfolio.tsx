@@ -34,13 +34,13 @@ const PORTRAITS = [portraitRed, portraitBlackStand, portraitBlackSit];
 export const Route = createFileRoute("/portfolio")({
   head: () => ({
     meta: [
-      { title: "Alusine G. Dumbuya — Eager Beaver · Full-Stack Developer & Video Editor" },
+      { title: "Alusine G. Dumbuya, Eager Beaver · Full-Stack Developer & Video Editor" },
       {
         name: "description",
         content:
-          "Portfolio of Alusine G. Dumbuya (Eager Beaver) — full-stack developer, systems builder and video editor studying at Limkokwing University, Sierra Leone.",
+          "Portfolio of Alusine G. Dumbuya (Eager Beaver), full-stack developer, systems builder and video editor studying at Limkokwing University, Sierra Leone.",
       },
-      { property: "og:title", content: "Alusine G. Dumbuya — Eager Beaver" },
+      { property: "og:title", content: "Alusine G. Dumbuya, Eager Beaver" },
       {
         property: "og:description",
         content: "Full-stack developer, systems builder and video editor. Sierra Leone.",
@@ -73,12 +73,12 @@ const SERVICES = [
   {
     icon: Layers,
     title: "Systems Building",
-    body: "Architecting end-to-end systems — from data model to deployment — that ship and stay shipped.",
+    body: "Architecting end-to-end systems, from data model to deployment, that ship and stay shipped.",
   },
   {
     icon: Video,
     title: "Video Editing",
-    body: "Story-driven edits, motion typography and color — for brands, creators and short-form social.",
+    body: "Story-driven edits, motion typography and color, for brands, creators and short-form social.",
   },
 ];
 
@@ -105,7 +105,7 @@ const PROCESS = [
     icon: Search,
     k: "01",
     t: "Discovery & Brief",
-    d: "I sit with the problem before I touch a file. Goals, users, constraints, budget, deadline, success metric — all written down and confirmed with you before scope is locked.",
+    d: "I sit with the problem before I touch a file. Goals, users, constraints, budget, deadline, success metric, all written down and confirmed with you before scope is locked.",
   },
   {
     icon: PenTool,
@@ -117,7 +117,7 @@ const PROCESS = [
     icon: Hammer,
     k: "03",
     t: "Build in Vertical Slices",
-    d: "I ship one working slice at a time — frontend, backend, database, deployed — so you can click a real thing every few days instead of waiting for a big reveal.",
+    d: "I ship one working slice at a time, frontend, backend, database, deployed, so you can click a real thing every few days instead of waiting for a big reveal.",
   },
   {
     icon: TestTube2,
@@ -129,13 +129,13 @@ const PROCESS = [
     icon: Rocket,
     k: "05",
     t: "Launch & Handoff",
-    d: "CI/CD pipeline, environment variables documented, a written runbook and a walkthrough call. You own the codebase — no lock-in, no black boxes.",
+    d: "CI/CD pipeline, environment variables documented, a written runbook and a walkthrough call. You own the codebase, no lock-in, no black boxes.",
   },
   {
     icon: LifeBuoy,
     k: "06",
     t: "Iterate & Support",
-    d: "30-day post-launch window included. After that we can move to a retainer for features, monitoring and monthly reports — or you're free to fly solo.",
+    d: "30-day post-launch window included. After that we can move to a retainer for features, monitoring and monthly reports, or you're free to fly solo.",
   },
 ];
 
@@ -196,7 +196,7 @@ function PortfolioPage() {
               <span className="text-[#E63946]">Dumbuya</span>
             </h1>
             <p className="mt-6 max-w-xl text-base sm:text-lg text-[#A8A8A8] leading-relaxed">
-              Also known as <span className="text-white font-semibold">Eager Beaver</span> — a
+              Also known as <span className="text-white font-semibold">Eager Beaver</span>, a
               full-stack developer, systems builder and video editor studying at{" "}
               <span className="text-white">Limkokwing University, Sierra Leone</span>. I build
               websites, apps and backends end-to-end, and I cut video that earns attention.
@@ -260,10 +260,10 @@ function PortfolioPage() {
                 aria-hidden
               />
               <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#1A1410]">
-                <img
+                <SmartImage
                   key={current.url}
                   src={current.url}
-                  alt="Alusine G. Dumbuya — Eager Beaver"
+                  alt="Alusine G. Dumbuya, Eager Beaver"
                   className="w-full h-auto block animate-in fade-in duration-500"
                   loading="eager"
                   fetchPriority="high"
@@ -321,7 +321,7 @@ function PortfolioPage() {
               </h2>
             </div>
             <p className="max-w-md text-sm text-[#A8A8A8] leading-relaxed">
-              Every project I take on runs through the same disciplined pipeline — so you always
+              Every project I take on runs through the same disciplined pipeline, so you always
               know what's happening, what's next, and what "done" looks like. No vibes, no vanishing
               acts.
             </p>
@@ -378,7 +378,7 @@ function PortfolioPage() {
               <span className="text-[#E63946]">do.</span>
             </h2>
             <p className="hidden sm:block max-w-sm text-sm text-[#A8A8A8]">
-              One brain, four crafts. Brief me on the outcome — I'll handle the stack.
+              One brain, four crafts. Brief me on the outcome, I'll handle the stack.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/10 border border-white/10 rounded-2xl overflow-hidden">
@@ -488,7 +488,7 @@ function PortfolioPage() {
                   Live projects on GitHub
                 </h3>
                 <p className="mt-2 text-sm text-[#A8A8A8] max-w-md">
-                  Browse every repository I've shipped — open source, experiments and client work.
+                  Browse every repository I've shipped, open source, experiments and client work.
                 </p>
               </div>
               <a
@@ -576,7 +576,7 @@ function PortfolioPage() {
               opportunity?
             </h2>
             <p className="mt-6 max-w-lg text-[#A8A8A8]">
-              Internships, freelance gigs, full-time roles or a project you need shipped fast — I'd
+              Internships, freelance gigs, full-time roles or a project you need shipped fast, I'd
               love to hear about it.
             </p>
           </div>
@@ -597,7 +597,7 @@ function PortfolioPage() {
       </section>
 
       <footer className="px-5 sm:px-8 py-10 border-t border-white/5 text-xs text-[#A8A8A8] flex flex-wrap items-center justify-between gap-3">
-        <span>© {new Date().getFullYear()} Alusine G. Dumbuya — Eager Beaver.</span>
+        <span>© {new Date().getFullYear()} Alusine G. Dumbuya, Eager Beaver.</span>
         <span>Built & shipped from Sierra Leone.</span>
       </footer>
     </div>

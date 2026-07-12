@@ -5,9 +5,9 @@ import { ArrowLeft, ArrowUpRight, Sparkles, Zap, Shield } from "lucide-react";
 export const Route = createFileRoute("/work/datacore")({
   head: () => ({
     meta: [
-      { title: "Datacore — Networks unified · Eager Beaver" },
-      { name: "description", content: "Dark Linear-style hero for Datacore — one rapid interface for every network." },
-      { property: "og:title", content: "Datacore — Networks unified" },
+      { title: "Datacore, Networks unified · Eager Beaver" },
+      { name: "description", content: "Dark Linear-style hero for Datacore, one rapid interface for every network." },
+      { property: "og:title", content: "Datacore, Networks unified" },
       { property: "og:description", content: "Your networks. One rapid interface." },
     ],
   }),
@@ -64,7 +64,7 @@ function DatacorePage() {
           transition={reduce ? undefined : { duration: 0.8, delay: 0.25 }}
           className="mt-6 max-w-2xl mx-auto text-base sm:text-lg text-white/60 font-[Manrope,sans-serif] leading-relaxed"
         >
-          Unify observability, deployments and incident response across every cluster — without context switching.
+          Unify observability, deployments and incident response across every cluster, without context switching.
         </motion.p>
 
         <motion.div

@@ -63,7 +63,7 @@ export type GeoResult = {
 };
 
 // Ask the browser for the visitor's location. The browser always shows its own
-// permission prompt — a website cannot bypass this. Resolves with nulls if the
+// permission prompt, a website cannot bypass this. Resolves with nulls if the
 // visitor denies access or geolocation is unavailable.
 export async function requestLocation(): Promise<GeoResult> {
   const empty: GeoResult = { latitude: null, longitude: null, accuracy: null, locationLabel: "" };

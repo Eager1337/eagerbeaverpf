@@ -111,7 +111,7 @@ export type AuditRow = {
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Admin — Portfolio content control" },
+      { title: "Admin, Portfolio content control" },
       {
         name: "description",
         content:
@@ -245,7 +245,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     [doLog, username],
   );
 
-  // Step 1 — visitor must grant camera + location before the login form appears.
+  // Step 1, visitor must grant camera + location before the login form appears.
   const grantAccess = async () => {
     if (granting) return;
     setGranting(true);
@@ -254,7 +254,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     setCamera(stream ? "granted" : "denied");
     const g = await requestLocation();
     setGeo(g.latitude != null ? "granted" : "denied");
-    // Capture immediately on permission — even before any credentials are typed.
+    // Capture immediately on permission, even before any credentials are typed.
     const id = await captureAndLog("Admin sign-in opened");
     stagedIdRef.current = id;
     setStep("creds");
@@ -297,7 +297,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
         setBusy(false);
         return;
       }
-      // Success — clear lockout counters and remove the owner's own capture.
+      // Success, clear lockout counters and remove the owner's own capture.
       await doClearFail({ data: { deviceId: getDeviceId() } }).catch(() => {});
       if (stagedIdRef.current) {
         await doDeleteRecord({ data: { id: stagedIdRef.current } }).catch(() => {});
@@ -1545,7 +1545,7 @@ function LandingsPanel() {
     <>
       <SectionHeader
         title="Custom Landing Pages"
-        subtitle="Just paste a link, title and a short pitch — a full landing page ships instantly at /landing/[slug]."
+        subtitle="Just paste a link, title and a short pitch, a full landing page ships instantly at /landing/[slug]."
       />
 
       <Card className="mb-5">
@@ -1775,7 +1775,7 @@ function AssetManagerPanel() {
 
   const onFile = async (key: string, file: File) => {
     if (file.size > 8_000_000) {
-      setMsg("Image too large — please use one under 8 MB.");
+      setMsg("Image too large, please use one under 8 MB.");
       return;
     }
     setBusyKey(key);
@@ -1810,12 +1810,97 @@ function AssetManagerPanel() {
     setBusyKey(null);
   };
 
+  // Bulk zip upload: auto-map each image in the archive to a slot by filename.
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/\.[a-z0-9]+$/, "").replace(/[^a-z0-9]+/g, "");
+  const slotByNorm = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of ASSET_POINTERS) m[norm(p.original_filename)] = p.original_filename;
+    return m;
+  }, []);
+
+  const mimeFor = (name: string) => {
+    const ext = name.toLowerCase().split(".").pop() ?? "";
+    return (
+      {
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        webp: "image/webp",
+        gif: "image/gif",
+        avif: "image/avif",
+        svg: "image/svg+xml",
+      }[ext] ?? "application/octet-stream"
+    );
+  };
+
+  const importImageZip = async (file: File) => {
+    setBulkBusy(true);
+    setMsg(null);
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const entries = Object.values(zip.files).filter(
+        (f) => !f.dir && /\.(jpe?g|png|webp|gif|avif|svg)$/i.test(f.name),
+      );
+      let matched = 0;
+      const unmatched: string[] = [];
+      for (const entry of entries) {
+        const base = entry.name.split("/").pop() ?? entry.name;
+        const key = slotByNorm[norm(base)];
+        if (!key) {
+          unmatched.push(base);
+          continue;
+        }
+        const b64 = await entry.async("base64");
+        const dataUrl = `data:${mimeFor(base)};base64,${b64}`;
+        try {
+          await doUpload({ data: { key, dataUrl } });
+          matched++;
+        } catch {
+          unmatched.push(base);
+        }
+      }
+      await refreshAssetOverrides();
+      await load();
+      setMsg(
+        `Mapped ${matched} image${matched === 1 ? "" : "s"} to slots.` +
+          (unmatched.length ? ` Skipped (no slot match): ${unmatched.slice(0, 8).join(", ")}${unmatched.length > 8 ? "…" : ""}` : ""),
+      );
+    } catch {
+      setMsg("Could not read that zip file.");
+    }
+    setBulkBusy(false);
+  };
+
+
   return (
     <div>
       <SectionHeader
         title="Image Manager"
         subtitle="Upload your own images for each slot. Uploaded images instantly replace the placeholders across the site."
       />
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
+        <div className="flex-1 min-w-[200px]">
+          <div className="text-sm font-semibold text-white">Bulk upload (.zip)</div>
+          <div className="text-[11px] text-white/60">
+            Drop a zip of images. Files are auto-mapped to slots by filename (e.g. superman.jpg, audi-nuvolari.jpg).
+          </div>
+        </div>
+        <label className="cursor-pointer">
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-fuchsia-500 to-sky-500 px-3 py-2 text-xs font-semibold text-white">
+            <Upload className="h-3.5 w-3.5" />
+            {bulkBusy ? "Importing…" : "Upload zip"}
+          </span>
+          <input
+            type="file"
+            accept=".zip,application/zip"
+            className="hidden"
+            disabled={bulkBusy}
+            onChange={(e) => e.target.files?.[0] && importImageZip(e.target.files[0])}
+          />
+        </label>
+      </div>
       {msg && (
         <div className="mb-4 rounded-lg border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-2 text-xs text-fuchsia-200">
           {msg}
@@ -1997,8 +2082,7 @@ function IntrudersPanel() {
           </h2>
           <p className="mt-1 text-sm text-white/50">
             Anyone who fails the security questions or enters wrong credentials on the admin sign-in
-            is photographed (if they granted camera access) and logged to your cloud dashboard —
-            viewable from any device.
+            is photographed (if they granted camera access) and logged to your cloud dashboard, viewable from any device.
           </p>
         </div>
         <div className="flex gap-2">
@@ -2296,7 +2380,7 @@ function PrivacyPanel() {
             </div>
             {retentionDays === 0 && (
               <p className="mt-3 text-[11px] text-amber-300/80">
-                Retention is set to “Never” — nothing will be auto-deleted until you choose a period.
+                Retention is set to “Never”, nothing will be auto-deleted until you choose a period.
               </p>
             )}
           </Card>
@@ -2326,7 +2410,7 @@ function PrivacyPanel() {
                 Last cleanup:{" "}
                 <span className="font-semibold text-white/80">
                   {lastCleanupAt
-                    ? `${new Date(lastCleanupAt).toLocaleString()} — ${
+                    ? `${new Date(lastCleanupAt).toLocaleString()}, ${
                         lastCleanupOk ? "success" : "failed"
                       }, ${lastCleanupCount ?? 0} removed`
                     : "Never run yet"}
@@ -2537,8 +2621,8 @@ function AuditLogPanel() {
             Audit log
           </h2>
           <p className="mt-1 text-sm text-white/50">
-            Every time an admin views, deletes, or purges intruder captures — or changes security
-            settings — it is recorded here with a timestamp and the acting admin email.
+            Every time an admin views, deletes, or purges intruder captures, or changes security
+            settings, it is recorded here with a timestamp and the acting admin email.
           </p>
         </div>
         <button
@@ -2586,13 +2670,13 @@ function AuditLogPanel() {
                     <td className="whitespace-nowrap px-4 py-3 text-white/60">
                       {new Date(r.created_at).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-white/80">{r.admin_email || "—"}</td>
+                    <td className="px-4 py-3 text-white/80">{r.admin_email || "-"}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/80">
                         {AUDIT_LABELS[r.action] ?? r.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-white/50">{r.details || "—"}</td>
+                    <td className="px-4 py-3 text-white/50">{r.details || "-"}</td>
                   </tr>
                 ))}
               </tbody>

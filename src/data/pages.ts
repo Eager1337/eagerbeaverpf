@@ -1,4 +1,4 @@
-// 50 portfolio pages grouped into 10 sections — all available via /portfolio-os/$slug
+// 50 portfolio pages grouped into 10 sections, all available via /portfolio-os/$slug
 export interface PortfolioPage {
   slug: string;
   title: string;

@@ -4,7 +4,7 @@ import { Check, ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/contact")({
-  head: () => ({ meta: [{ title: "Contact — Eager Beaver" }] }),
+  head: () => ({ meta: [{ title: "Contact, Eager Beaver" }] }),
   component: ContactPage,
 });
 

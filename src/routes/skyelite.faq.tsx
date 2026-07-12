@@ -4,13 +4,13 @@ import { Plus, Minus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export const Route = createFileRoute("/skyelite/faq")({
-  head: () => ({ meta: [{ title: "FAQ — SkyElite" }] }),
+  head: () => ({ meta: [{ title: "FAQ, SkyElite" }] }),
   component: FAQ,
 });
 
 const QA = [
   { q: "How quickly can I book a flight?", a: "Most quotes are returned within 8 minutes. Aircraft can be wheels-up in as little as 4 hours." },
-  { q: "Do you fly internationally?", a: "Yes — over 5,000 airports across 120+ countries." },
+  { q: "Do you fly internationally?", a: "Yes, over 5,000 airports across 120+ countries." },
   { q: "What's included in the rate?", a: "Crew, fuel, landing fees, standard catering and Wi-Fi. Custom add-ons billed separately." },
   { q: "Can I bring pets?", a: "Absolutely. Pets fly in the cabin with you at no extra charge." },
   { q: "How do I become a member?", a: "Reach out through the Book Now page and our concierge will tailor a membership to your travel pattern." },

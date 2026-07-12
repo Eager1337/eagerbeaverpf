@@ -35,8 +35,8 @@ export function CommandPalette() {
   const liveProjects = projects.length ? projects : PROJECTS;
   const items: Item[] = useMemo(() => [
     { id: "home", label: "Home", kind: "page", to: "/" },
-    { id: "explore", label: "Explore — 50 projects", kind: "page", to: "/explore" },
-    { id: "portfolio-os", label: "Portfolio OS — 50 features", kind: "page", to: "/portfolio-os" },
+    { id: "explore", label: "Explore, 50 projects", kind: "page", to: "/explore" },
+    { id: "portfolio-os", label: "Portfolio OS, 50 features", kind: "page", to: "/portfolio-os" },
     ...liveProjects.map((p) => ({ id: `proj-${p.slug}`, label: `${p.title} · ${p.category}`, kind: "project" as const, to: `/explore/${p.slug}` })),
     ...liveProjects.map((p) => ({ id: `landing-${p.slug}`, label: `${p.title} landing page`, kind: "landing" as const, to: `/landing/${p.slug}` })),
     ...legends.map((l) => ({ id: `legend-${l.slug}`, label: `${l.title} · Legend`, kind: "legend" as const, to: `/legends/${l.slug}` })),

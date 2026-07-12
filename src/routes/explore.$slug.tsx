@@ -9,7 +9,7 @@ import { useContent } from "../lib/content-store";
 export const Route = createFileRoute("/explore/$slug")({
   head: () => ({
     meta: [
-      { title: "Explore case study — Eager Beaver" },
+      { title: "Explore case study, Eager Beaver" },
       { name: "description", content: "Premium project case study with metrics, problem, solution, stack, and conversion CTA." },
     ],
   }),

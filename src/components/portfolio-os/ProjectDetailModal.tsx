@@ -161,7 +161,7 @@ export function ProjectDetailModal({
                     <div className="flex aspect-video items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/0 text-white/60">
                       <div className="text-center">
                         <Play className="mx-auto h-10 w-10" />
-                        <div className="mt-3 text-sm">Live demo opens in a new tab — request access below.</div>
+                        <div className="mt-3 text-sm">Live demo opens in a new tab, request access below.</div>
                       </div>
                     </div>
                   </div>

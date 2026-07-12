@@ -7,7 +7,7 @@ import { PROJECTS } from "../data/projects";
 export const Route = createFileRoute("/landing/$slug")({
   head: ({ params }) => ({
     meta: [
-      { title: `${params.slug} — Landing` },
+      { title: `${params.slug}, Landing` },
       { name: "description", content: "A custom landing page." },
       { name: "robots", content: "index,follow" },
     ],

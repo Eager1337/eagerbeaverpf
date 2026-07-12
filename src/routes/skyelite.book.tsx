@@ -5,7 +5,7 @@ import { ArrowRight, Check, Mail } from "lucide-react";
 import { z } from "zod";
 
 export const Route = createFileRoute("/skyelite/book")({
-  head: () => ({ meta: [{ title: "Book — SkyElite" }] }),
+  head: () => ({ meta: [{ title: "Book, SkyElite" }] }),
   component: Book,
 });
 

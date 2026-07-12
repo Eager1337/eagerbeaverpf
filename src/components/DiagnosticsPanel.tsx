@@ -169,7 +169,7 @@ export function DiagnosticsPanel() {
                   <ul className="mt-2 list-disc space-y-1 pl-5">
                     {failing.map((c) => (
                       <li key={`fail-${c.id}`}>
-                        <span className="font-semibold">{c.label}</span> — {c.detail}
+                        <span className="font-semibold">{c.label}</span>, {c.detail}
                       </li>
                     ))}
                   </ul>
