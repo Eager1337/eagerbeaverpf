@@ -4,7 +4,7 @@ import { InvestorSuite } from "../components/portfolio-os/InvestorSuite";
 export const Route = createFileRoute("/portfolio-os/suite")({
   head: () => ({
     meta: [
-      { title: "Investor Suite — AI, Analytics, A11y & Estimator" },
+      { title: "Investor Suite, AI, Analytics, A11y & Estimator" },
       { name: "description", content: "AI assistant, investor analytics dashboard, accessibility + language settings, and a live quote estimator that generates a downloadable proposal." },
     ],
   }),

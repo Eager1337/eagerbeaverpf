@@ -5,9 +5,9 @@ import { ArrowUpRight, ShieldCheck, Zap, Globe2 } from "lucide-react";
 export const Route = createFileRoute("/halo")({
   head: () => ({
     meta: [
-      { title: "USD Halo — Premium Stablecoin Banking" },
+      { title: "USD Halo, Premium Stablecoin Banking" },
       { name: "description", content: "USD Halo: a premium fintech rail for instant, compliant, global USD payments." },
-      { property: "og:title", content: "USD Halo — Premium Stablecoin Banking" },
+      { property: "og:title", content: "USD Halo, Premium Stablecoin Banking" },
       { property: "og:description", content: "Instant, compliant, global USD payments." },
     ],
   }),

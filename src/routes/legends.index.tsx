@@ -6,13 +6,13 @@ import { useContent } from "../lib/content-store";
 export const Route = createFileRoute("/legends/")({
   head: () => ({
     meta: [
-      { title: "Legends — Ten looping premium landing pages" },
+      { title: "Legends, Ten looping premium landing pages" },
       {
         name: "description",
         content:
-          "Ten cinematic looping landing pages — Deadpool × Wolverine, Superman, One Punch Man, Spider-Verse, NBA 2K25, Hoop Dreams, Wooden Love, Audi Nuvolari, One Piece, Luffy.",
+          "Ten cinematic looping landing pages, Deadpool × Wolverine, Superman, One Punch Man, Spider-Verse, NBA 2K25, Hoop Dreams, Wooden Love, Audi Nuvolari, One Piece, Luffy.",
       },
-      { property: "og:title", content: "Legends — Cinematic looping landing pages" },
+      { property: "og:title", content: "Legends, Cinematic looping landing pages" },
       {
         property: "og:description",
         content: "Ten premium landing pages, each with a bespoke loop.",

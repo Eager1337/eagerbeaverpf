@@ -5,7 +5,7 @@ import { ArrowLeft, Sparkles } from "lucide-react";
 export const Route = createFileRoute("/work/aurai")({
   head: () => ({
     meta: [
-      { title: "Aurai — Hero Showcase" },
+      { title: "Aurai, Hero Showcase" },
       { name: "description", content: "Aurai: ambient AI companion hero showcase." },
     ],
   }),
@@ -60,7 +60,7 @@ function AuraiPage() {
           transition={{ duration: 0.6, delay: 0.25 }}
           className="mt-6 max-w-xl mx-auto text-lg text-white/70"
         >
-          A calm, ambient AI companion that lives at the edge of your screen — listening, summarising,
+          A calm, ambient AI companion that lives at the edge of your screen, listening, summarising,
           and quietly disappearing when you don't need it.
         </motion.p>
 

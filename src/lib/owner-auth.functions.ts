@@ -6,7 +6,7 @@ import { z } from "zod";
  * Owner login.
  *
  * The visitor types a username + password in the admin panel. Those credentials
- * are verified here on the server against secret env values — the real Supabase
+ * are verified here on the server against secret env values, the real Supabase
  * owner account (and its strong password) never ship to the browser.
  *
  * On success we ensure the owner account exists (creating it with the service
@@ -35,7 +35,7 @@ export const ownerLogin = createServerFn({ method: "POST" })
       data.username.trim().toLowerCase() === expectedUser.toLowerCase();
     const passOk = accepted.includes(data.password);
 
-    // Generic failure — never reveal which field was wrong.
+    // Generic failure, never reveal which field was wrong.
     if (!userOk || !passOk) {
       return { ok: false as const };
     }
@@ -55,7 +55,7 @@ export const ownerLogin = createServerFn({ method: "POST" })
         email_confirm: true,
       });
       if (created.data.user) ownerId = created.data.user.id;
-      // If it already exists, createUser errors — fall through and look it up.
+      // If it already exists, createUser errors, fall through and look it up.
     } catch {
       /* already exists */
     }

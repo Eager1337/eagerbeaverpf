@@ -146,7 +146,7 @@ function ToonhubHero() {
           TOONHUB
         </div>
 
-        {/* Fixed stage — object-contain guarantees no cropping at any breakpoint */}
+        {/* Fixed stage, object-contain guarantees no cropping at any breakpoint */}
         <div
           className="absolute inset-0 flex items-end justify-center"
           style={{ zIndex: 3, paddingBottom: "6%" }}
@@ -392,7 +392,7 @@ function JackHero() {
 }
 
 function GitHubStatsSection() {
-  const [stats, setStats] = useState({ repos: "50+", stars: "—", forks: "—", followers: "—" });
+  const [stats, setStats] = useState({ repos: "50+", stars: "-", forks: "-", followers: "-" });
 
   useEffect(() => {
     let alive = true;
@@ -454,7 +454,7 @@ function GitHubStatsSection() {
 function TestimonialsSection() {
   const testimonials = [
     { quote: "Turned a scattered idea into an investor-ready product story with metrics, polish, and a launch path.", name: "Mariama K.", role: "Founder · EduOps", stat: "+41% onboarding clarity" },
-    { quote: "The prototype felt like a real startup dashboard on day one — responsive, persuasive, and easy to demo.", name: "David C.", role: "Product Lead · HealthStack", stat: "3-week MVP sprint" },
+    { quote: "The prototype felt like a real startup dashboard on day one, responsive, persuasive, and easy to demo.", name: "David C.", role: "Product Lead · HealthStack", stat: "3-week MVP sprint" },
     { quote: "Every section explained business value, not just visuals. Clients understood the offer instantly.", name: "Ibrahim S.", role: "Agency Partner", stat: "2.8× inquiry lift" },
   ];
   return (
@@ -652,7 +652,7 @@ const SERVICES = [
   [
     "04",
     "Branding",
-    "Crafting cohesive visual identities — from logos to full brand systems — that communicate a clear and memorable presence.",
+    "Crafting cohesive visual identities, from logos to full brand systems, that communicate a clear and memorable presence.",
   ],
   [
     "05",
@@ -946,7 +946,7 @@ function VanguardHero() {
         <p className="animate-fade-up-delay-2 text-white/70 text-sm sm:text-base font-inter leading-relaxed max-w-md mt-6 lg:mt-8">
           We build fierce brand identities
           <br />
-          that don&apos;t just turn heads — <span className="font-bold text-white">they lead.</span>
+          that don&apos;t just turn heads, <span className="font-bold text-white">they lead.</span>
         </p>
         <div className="animate-fade-up-delay-3 mt-8 lg:mt-10 flex flex-wrap items-center gap-4 sm:gap-6">
           <button className="group inline-flex items-center gap-2 bg-black hover:bg-neutral-900 text-white px-5 sm:px-7 py-3 sm:py-4 text-[11px] sm:text-xs tracking-widest uppercase transition-colors">
@@ -1019,7 +1019,7 @@ function PortfolioOsBanner() {
           Enter Portfolio OS
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
-          50+ interactive features and 50+ pages — case studies, skill tree, live GitHub analytics,
+          50+ interactive features and 50+ pages, case studies, skill tree, live GitHub analytics,
           developer terminal, AI assistant, investor mode and more, organized like a real operating
           system.
         </p>

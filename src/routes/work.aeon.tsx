@@ -6,7 +6,7 @@ import { useMemo } from "react";
 export const Route = createFileRoute("/work/aeon")({
   head: () => ({
     meta: [
-      { title: "Aeon — Cinematic Hero Showcase" },
+      { title: "Aeon, Cinematic Hero Showcase" },
       { name: "description", content: "Aeon: a cinematic space-travel hero showcase." },
     ],
   }),
@@ -99,7 +99,7 @@ function AeonPage() {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="mt-6 max-w-xl mx-auto text-lg text-white/70"
         >
-          A cinematic launch experience — built to feel like the moment before liftoff.
+          A cinematic launch experience, built to feel like the moment before liftoff.
           Pure atmosphere, zero noise.
         </motion.p>
       </section>

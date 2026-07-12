@@ -3,7 +3,7 @@ import type { Analytics } from "./portfolio-os-settings";
 import { PROJECTS } from "../data/projects";
 import portraitAsset from "../assets/portrait-red.jpg.asset.json";
 
-const BRAND = "Alusine G. Dumbuya — Eager Beaver";
+const BRAND = "Alusine G. Dumbuya, Eager Beaver";
 const BRAND_TAG = "Full-Stack Developer · Systems Builder · Video Editor";
 const CONTACT = "ebeaver091@gmail.com · +232 33 695 803 · github.com/Eager1337";
 
@@ -90,7 +90,7 @@ export async function downloadCvPdf() {
 
   sec("Summary");
   line(
-    "Full-stack developer and systems builder with a video-editing background. I ship end-to-end web products in React, TypeScript, TanStack Start, Node.js and Postgres — plus cinematic video in Premiere, After Effects and DaVinci Resolve. I build production-grade systems solo, from data model to deployment.",
+    "Full-stack developer and systems builder with a video-editing background. I ship end-to-end web products in React, TypeScript, TanStack Start, Node.js and Postgres, plus cinematic video in Premiere, After Effects and DaVinci Resolve. I build production-grade systems solo, from data model to deployment.",
   );
 
   sec("Core skills");
@@ -104,14 +104,14 @@ export async function downloadCvPdf() {
   sec("Selected projects");
   PROJECTS.slice(0, 8).forEach((p) => {
     doc.setFont("helvetica", "bold");
-    line(`${p.title} — ${p.category}`);
+    line(`${p.title}, ${p.category}`);
     doc.setFont("helvetica", "normal");
     line(p.tagline);
     y += 1;
   });
 
   sec("Education");
-  line("Limkokwing University, Sierra Leone — Software Engineering track (current).");
+  line("Limkokwing University, Sierra Leone, Software Engineering track (current).");
 
   sec("Contact");
   line("Email: ebeaver091@gmail.com");
@@ -161,11 +161,11 @@ export async function downloadRateCardPdf() {
   doc.text("ADD-ONS", 14, y); y += 6;
   doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(30, 30, 30);
   [
-    "Video editing (per finished minute) — $180",
-    "Extra page — $220",
-    "Motion / animation pass — $650",
-    "SEO audit + fixes — $450",
-    "Ongoing retainer (monthly) — from $900",
+    "Video editing (per finished minute), $180",
+    "Extra page, $220",
+    "Motion / animation pass, $650",
+    "SEO audit + fixes, $450",
+    "Ongoing retainer (monthly), from $900",
   ].forEach((s) => { doc.text("• " + s, 14, y); y += 6; });
 
   footer(doc);
@@ -231,7 +231,7 @@ export async function downloadAnalyticsPdf(a: Analytics, compare?: [string, stri
     ["Sessions", String(a.sessions)],
     ["Project views", String(totalViews)],
     ["Feature clicks", String(totalClicks)],
-    ["First seen", a.firstSeen ? new Date(a.firstSeen).toLocaleDateString() : "—"],
+    ["First seen", a.firstSeen ? new Date(a.firstSeen).toLocaleDateString() : "-"],
   ];
   kpis.forEach(([k, v], i) => {
     const x = 14 + (i % 4) * 46;
@@ -356,7 +356,7 @@ export function downloadQuotePdf(q: QuoteInput) {
   doc.setFont("helvetica", "normal").setFontSize(10);
   sec("Deliverables");
   li("Production build shipped on Lovable Cloud");
-  li("Full source access — you own the code");
+  li("Full source access, you own the code");
   li("30-day post-launch support included");
   li("Signable SOW within 24 hours of acceptance");
 

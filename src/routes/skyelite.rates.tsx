@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 
 export const Route = createFileRoute("/skyelite/rates")({
-  head: () => ({ meta: [{ title: "Rates — SkyElite" }] }),
+  head: () => ({ meta: [{ title: "Rates, SkyElite" }] }),
   component: Rates,
 });
 

@@ -7,9 +7,9 @@ import { useFocusTrap } from "@/hooks/use-focus-trap";
 export const Route = createFileRoute("/skyelite")({
   head: () => ({
     meta: [
-      { title: "SkyElite — Private Jet Charter" },
+      { title: "SkyElite, Private Jet Charter" },
       { name: "description", content: "Premium private jet charter. Fly on your own terms with SkyElite." },
-      { property: "og:title", content: "SkyElite — Private Jet Charter" },
+      { property: "og:title", content: "SkyElite, Private Jet Charter" },
       { property: "og:description", content: "Premium private jet charter." },
     ],
   }),

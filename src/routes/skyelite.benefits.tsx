@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Clock, Shield, Sparkles, Globe, Heart, Crown } from "lucide-react";
 
 export const Route = createFileRoute("/skyelite/benefits")({
-  head: () => ({ meta: [{ title: "Benefits — SkyElite" }] }),
+  head: () => ({ meta: [{ title: "Benefits, SkyElite" }] }),
   component: Benefits,
 });
 

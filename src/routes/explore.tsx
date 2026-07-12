@@ -11,13 +11,13 @@ import { trackEvent } from "../lib/portfolio-os-settings";
 export const Route = createFileRoute("/explore")({
   head: () => ({
     meta: [
-      { title: "Explore — 50 production-grade case studies" },
+      { title: "Explore, 50 production-grade case studies" },
       {
         name: "description",
         content:
           "Browse 50 showcase websites across education, medical, government, AI, creator economy, advanced systems and more.",
       },
-      { property: "og:title", content: "Explore 50 Sites — Portfolio OS" },
+      { property: "og:title", content: "Explore 50 Sites, Portfolio OS" },
       {
         property: "og:description",
         content: "Filter, search, and dive into 50 production-grade case studies.",
@@ -108,7 +108,7 @@ function ExplorePage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Live search across 50 projects — try 'AI', 'Sierra Leone', or 'Postgres'…"
+            placeholder="Live search across 50 projects, try 'AI', 'Sierra Leone', or 'Postgres'…"
             className="flex-1 bg-transparent text-sm placeholder:text-white/40 focus:outline-none"
           />
           <span className="text-[10px] text-white/40">{filtered.length} match</span>
@@ -162,7 +162,7 @@ function ExplorePage() {
         </motion.div>
         {filtered.length === 0 && (
           <div className="py-24 text-center text-white/50">
-            No projects match — try another filter.
+            No projects match, try another filter.
           </div>
         )}
       </main>

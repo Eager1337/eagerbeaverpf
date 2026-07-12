@@ -5,7 +5,7 @@ type Msg = { from: "me" | "them"; text: string };
 
 const DEFAULT: Msg[] = [
   { from: "them", text: "Hey, you up?" },
-  { from: "me", text: "Yeah — what's wrong?" },
+  { from: "me", text: "Yeah, what's wrong?" },
   { from: "them", text: "Just got the offer 🎉" },
   { from: "me", text: "no way!!! congrats 🥹" },
   { from: "them", text: "Drinks tmrw?" },

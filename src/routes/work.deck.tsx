@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 export const Route = createFileRoute("/work/deck")({
   head: () => ({
     meta: [
-      { title: "Slide deck — Mux HLS · Eager Beaver" },
+      { title: "Slide deck, Mux HLS · Eager Beaver" },
       { name: "description", content: "Always-mounted slide deck with HLS background videos, keyboard navigation and dot pagination." },
     ],
   }),
@@ -18,8 +18,8 @@ const HLS_SRC = "https://stream.mux.com/NcU3HlHeF7CUL86azTTzpy3Tlb00d6iF3BmCdFsl
 
 const SLIDES = [
   { title: "Build with conviction", body: "Five slides. One narrative. Always pre-loaded." },
-  { title: "Always mounted", body: "Slides never unmount — HLS videos preload across the deck." },
-  { title: "Fade through black", body: "Transitions cross #000 — no white flashes between cuts." },
+  { title: "Always mounted", body: "Slides never unmount, HLS videos preload across the deck." },
+  { title: "Fade through black", body: "Transitions cross #000, no white flashes between cuts." },
   { title: "Keyboard first", body: "→ ↓ Space advance · ← ↑ go back. Dots are clickable." },
   { title: "Ship it", body: "Deck is ready. Wire your own content and press present." },
 ];

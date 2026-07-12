@@ -356,7 +356,7 @@ export const updateSecuritySettings = createServerFn({ method: "POST" })
 
 /* ---------------- Privacy settings (admin only) ---------------- */
 
-// Daily cron runs at 03:00 UTC — compute the next occurrence.
+// Daily cron runs at 03:00 UTC, compute the next occurrence.
 function nextPurgeAtISO(): string {
   const now = new Date();
   const next = new Date(
@@ -431,7 +431,7 @@ export const purgeExpiredNow = createServerFn({ method: "POST" })
       .maybeSingle();
     const days = settings?.retention_days ?? 0;
     if (days <= 0) {
-      await writeAudit(supabaseAdmin, adminEmail(context), "purged_expired", null, "Purge skipped — no retention set");
+      await writeAudit(supabaseAdmin, adminEmail(context), "purged_expired", null, "Purge skipped, no retention set");
       return { deleted: 0, retentionDays: 0 };
     }
     const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();

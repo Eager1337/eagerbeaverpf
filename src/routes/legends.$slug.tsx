@@ -8,7 +8,7 @@ import { useContent } from "../lib/content-store";
 export const Route = createFileRoute("/legends/$slug")({
   head: () => ({
     meta: [
-      { title: "Legend — Eager Beaver" },
+      { title: "Legend, Eager Beaver" },
       { name: "description", content: "Cinematic looping legend landing page." },
     ],
   }),

@@ -67,7 +67,7 @@ async function loadOverrides() {
       for (const row of data ?? []) next[row.key] = row.url;
       cache = next;
     } catch {
-      /* ignore — fall back to built-in urls */
+      /* ignore, fall back to built-in urls */
     }
     loaded = true;
     notify();

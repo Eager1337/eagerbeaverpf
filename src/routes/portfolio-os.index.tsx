@@ -8,7 +8,7 @@ import { PAGES, PAGE_GROUPS } from "../data/pages";
 export const Route = createFileRoute("/portfolio-os/")({
   head: () => ({
     meta: [
-      { title: "Portfolio OS — 50 features + 50 pages" },
+      { title: "Portfolio OS, 50 features + 50 pages" },
       { name: "description", content: "Inspect every feature and every page that powers the portfolio operating system." },
       { property: "og:title", content: "Portfolio OS" },
       { property: "og:description", content: "50 investor-grade features + 50 pages, all interactive." },

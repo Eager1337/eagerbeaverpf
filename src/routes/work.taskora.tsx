@@ -5,9 +5,9 @@ import { ArrowLeft, ArrowUpRight, TrendingUp, Users, DollarSign, MoreHorizontal 
 export const Route = createFileRoute("/work/taskora")({
   head: () => ({
     meta: [
-      { title: "Taskora — Simplify your workflow · Eager Beaver" },
+      { title: "Taskora, Simplify your workflow · Eager Beaver" },
       { name: "description", content: "Dark hero with a light-mode dashboard preview for Taskora." },
-      { property: "og:title", content: "Taskora — Simplify your workflow" },
+      { property: "og:title", content: "Taskora, Simplify your workflow" },
       { property: "og:description", content: "Trusted by 30,000+ clients. Stay focused." },
     ],
   }),

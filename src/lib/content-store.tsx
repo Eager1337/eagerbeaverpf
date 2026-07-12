@@ -240,7 +240,7 @@ export function ContentStoreProvider({ children }: { children: ReactNode }) {
 export function useContent(): Ctx {
   const ctx = useContext(StoreContext);
   if (!ctx) {
-    // Provider not mounted (SSR / isolated component) — return defaults + no-ops
+    // Provider not mounted (SSR / isolated component), return defaults + no-ops
     const s = readStore();
     return { ...s, update: () => undefined, reset: () => undefined };
   }

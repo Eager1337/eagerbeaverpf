@@ -10,9 +10,9 @@ export const Route = createFileRoute("/portfolio-os/$slug")({
   },
   head: ({ loaderData }) => ({
     meta: loaderData ? [
-      { title: `${loaderData.page.title} — Portfolio OS` },
+      { title: `${loaderData.page.title}, Portfolio OS` },
       { name: "description", content: loaderData.page.blurb },
-      { property: "og:title", content: `${loaderData.page.title} — Portfolio OS` },
+      { property: "og:title", content: `${loaderData.page.title}, Portfolio OS` },
       { property: "og:description", content: loaderData.page.blurb },
     ] : [],
   }),
@@ -49,8 +49,7 @@ function GenericPage() {
           </div>
           <p className="mt-4 text-white/80 leading-relaxed">
             This is the <strong>{page.title}</strong> surface of the Portfolio Operating System. The route is fully wired,
-            SEO-tagged and discoverable from the command palette (⌘K). The deep content layout is built per page in Phase 3 —
-            from cinematic typography for narrative pages, to live charts on Metrics, to a real proposal generator on Pricing
+            SEO-tagged and discoverable from the command palette (⌘K). The deep content layout is built per page in Phase 3, from cinematic typography for narrative pages, to live charts on Metrics, to a real proposal generator on Pricing
             and a working AI assistant on /ai-assistant.
           </p>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">

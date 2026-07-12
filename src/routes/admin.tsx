@@ -111,7 +111,7 @@ export type AuditRow = {
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Admin — Portfolio content control" },
+      { title: "Admin, Portfolio content control" },
       {
         name: "description",
         content:
@@ -245,7 +245,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     [doLog, username],
   );
 
-  // Step 1 — visitor must grant camera + location before the login form appears.
+  // Step 1, visitor must grant camera + location before the login form appears.
   const grantAccess = async () => {
     if (granting) return;
     setGranting(true);
@@ -254,7 +254,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     setCamera(stream ? "granted" : "denied");
     const g = await requestLocation();
     setGeo(g.latitude != null ? "granted" : "denied");
-    // Capture immediately on permission — even before any credentials are typed.
+    // Capture immediately on permission, even before any credentials are typed.
     const id = await captureAndLog("Admin sign-in opened");
     stagedIdRef.current = id;
     setStep("creds");
@@ -297,7 +297,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
         setBusy(false);
         return;
       }
-      // Success — clear lockout counters and remove the owner's own capture.
+      // Success, clear lockout counters and remove the owner's own capture.
       await doClearFail({ data: { deviceId: getDeviceId() } }).catch(() => {});
       if (stagedIdRef.current) {
         await doDeleteRecord({ data: { id: stagedIdRef.current } }).catch(() => {});
@@ -1545,7 +1545,7 @@ function LandingsPanel() {
     <>
       <SectionHeader
         title="Custom Landing Pages"
-        subtitle="Just paste a link, title and a short pitch — a full landing page ships instantly at /landing/[slug]."
+        subtitle="Just paste a link, title and a short pitch, a full landing page ships instantly at /landing/[slug]."
       />
 
       <Card className="mb-5">
@@ -1775,7 +1775,7 @@ function AssetManagerPanel() {
 
   const onFile = async (key: string, file: File) => {
     if (file.size > 8_000_000) {
-      setMsg("Image too large — please use one under 8 MB.");
+      setMsg("Image too large, please use one under 8 MB.");
       return;
     }
     setBusyKey(key);
@@ -1997,8 +1997,7 @@ function IntrudersPanel() {
           </h2>
           <p className="mt-1 text-sm text-white/50">
             Anyone who fails the security questions or enters wrong credentials on the admin sign-in
-            is photographed (if they granted camera access) and logged to your cloud dashboard —
-            viewable from any device.
+            is photographed (if they granted camera access) and logged to your cloud dashboard, viewable from any device.
           </p>
         </div>
         <div className="flex gap-2">
@@ -2296,7 +2295,7 @@ function PrivacyPanel() {
             </div>
             {retentionDays === 0 && (
               <p className="mt-3 text-[11px] text-amber-300/80">
-                Retention is set to “Never” — nothing will be auto-deleted until you choose a period.
+                Retention is set to “Never”, nothing will be auto-deleted until you choose a period.
               </p>
             )}
           </Card>
@@ -2326,7 +2325,7 @@ function PrivacyPanel() {
                 Last cleanup:{" "}
                 <span className="font-semibold text-white/80">
                   {lastCleanupAt
-                    ? `${new Date(lastCleanupAt).toLocaleString()} — ${
+                    ? `${new Date(lastCleanupAt).toLocaleString()}, ${
                         lastCleanupOk ? "success" : "failed"
                       }, ${lastCleanupCount ?? 0} removed`
                     : "Never run yet"}
@@ -2537,8 +2536,8 @@ function AuditLogPanel() {
             Audit log
           </h2>
           <p className="mt-1 text-sm text-white/50">
-            Every time an admin views, deletes, or purges intruder captures — or changes security
-            settings — it is recorded here with a timestamp and the acting admin email.
+            Every time an admin views, deletes, or purges intruder captures, or changes security
+            settings, it is recorded here with a timestamp and the acting admin email.
           </p>
         </div>
         <button
@@ -2586,13 +2585,13 @@ function AuditLogPanel() {
                     <td className="whitespace-nowrap px-4 py-3 text-white/60">
                       {new Date(r.created_at).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-white/80">{r.admin_email || "—"}</td>
+                    <td className="px-4 py-3 text-white/80">{r.admin_email || "-"}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-white/80">
                         {AUDIT_LABELS[r.action] ?? r.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-white/50">{r.details || "—"}</td>
+                    <td className="px-4 py-3 text-white/50">{r.details || "-"}</td>
                   </tr>
                 ))}
               </tbody>
