@@ -1810,6 +1810,70 @@ function AssetManagerPanel() {
     setBusyKey(null);
   };
 
+  // Bulk zip upload: auto-map each image in the archive to a slot by filename.
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/\.[a-z0-9]+$/, "").replace(/[^a-z0-9]+/g, "");
+  const slotByNorm = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of ASSET_POINTERS) m[norm(p.original_filename)] = p.original_filename;
+    return m;
+  }, []);
+
+  const mimeFor = (name: string) => {
+    const ext = name.toLowerCase().split(".").pop() ?? "";
+    return (
+      {
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        webp: "image/webp",
+        gif: "image/gif",
+        avif: "image/avif",
+        svg: "image/svg+xml",
+      }[ext] ?? "application/octet-stream"
+    );
+  };
+
+  const importImageZip = async (file: File) => {
+    setBulkBusy(true);
+    setMsg(null);
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const entries = Object.values(zip.files).filter(
+        (f) => !f.dir && /\.(jpe?g|png|webp|gif|avif|svg)$/i.test(f.name),
+      );
+      let matched = 0;
+      const unmatched: string[] = [];
+      for (const entry of entries) {
+        const base = entry.name.split("/").pop() ?? entry.name;
+        const key = slotByNorm[norm(base)];
+        if (!key) {
+          unmatched.push(base);
+          continue;
+        }
+        const b64 = await entry.async("base64");
+        const dataUrl = `data:${mimeFor(base)};base64,${b64}`;
+        try {
+          await doUpload({ data: { key, dataUrl } });
+          matched++;
+        } catch {
+          unmatched.push(base);
+        }
+      }
+      await refreshAssetOverrides();
+      await load();
+      setMsg(
+        `Mapped ${matched} image${matched === 1 ? "" : "s"} to slots.` +
+          (unmatched.length ? ` Skipped (no slot match): ${unmatched.slice(0, 8).join(", ")}${unmatched.length > 8 ? "…" : ""}` : ""),
+      );
+    } catch {
+      setMsg("Could not read that zip file.");
+    }
+    setBulkBusy(false);
+  };
+
+
   return (
     <div>
       <SectionHeader
