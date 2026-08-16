@@ -282,18 +282,46 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     await captureAndLog(reason);
   };
 
+  // Factor 1: username + password. On success a one-time code is emailed.
   const submitCreds = async (e: React.FormEvent) => {
     e.preventDefault();
     if (locked) return;
     setBusy(true);
     setErr(null);
+    setResendNote(null);
     try {
-      const res = await doOwnerLogin({
+      const res = await doLoginStart({
         data: { username: username.trim(), password: pass },
       });
       if (!res.ok) {
         setErr(res.error ?? "Wrong username or password.");
         await triggerIntruder("Wrong admin username/password");
+        setBusy(false);
+        return;
+      }
+      setEmailHint(res.emailHint ?? "your email");
+      setCode("");
+      setStep("otp");
+    } catch {
+      setErr("Something went wrong. Please try again.");
+    }
+    setBusy(false);
+  };
+
+  // Factor 2: the emailed one-time code. Verifying it is what mints the session.
+  const submitCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (locked) return;
+    setBusy(true);
+    setErr(null);
+    setResendNote(null);
+    try {
+      const res = await doLoginVerify({
+        data: { username: username.trim(), password: pass, code: code.trim() },
+      });
+      if (!res.ok) {
+        setErr(res.error ?? "That code is invalid or has expired.");
+        await triggerIntruder("Wrong admin verification code");
         setBusy(false);
         return;
       }
@@ -315,6 +343,21 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
       onAuthed();
     } catch {
       setErr("Something went wrong. Please try again.");
+    }
+    setBusy(false);
+  };
+
+  const resendCode = async () => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await doLoginResend({
+        data: { username: username.trim(), password: pass },
+      });
+      setResendNote(res.ok ? "A new code is on its way." : "Could not resend right now.");
+    } catch {
+      setResendNote("Could not resend right now.");
     }
     setBusy(false);
   };
