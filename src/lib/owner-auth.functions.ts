@@ -42,6 +42,26 @@ export const ownerLoginStart = createServerFn({ method: "POST" })
     }
 
     const anon = anonClient();
+
+    // The second factor only runs once the project can actually deliver the
+    // code by email. Until then, password sign-in completes here so the owner
+    // is never locked out of their own dashboard.
+    if ((process.env.ADMIN_MFA_ENABLED ?? "false").toLowerCase() !== "true") {
+      const { data: signed, error } = await anon.auth.signInWithPassword({
+        email: cfg.ownerEmail,
+        password: cfg.ownerPassword,
+      });
+      if (error || !signed.session) {
+        return { ok: false as const, error: "Could not establish a session. Please try again." };
+      }
+      return {
+        ok: true as const,
+        mfaRequired: false as const,
+        access_token: signed.session.access_token,
+        refresh_token: signed.session.refresh_token,
+      };
+    }
+
     const { error } = await anon.auth.signInWithOtp({
       email: cfg.ownerEmail,
       options: { shouldCreateUser: false },
