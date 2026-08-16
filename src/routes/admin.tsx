@@ -514,10 +514,11 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
                   Your browser will ask for permission. Failed or denied attempts are still logged.
                 </p>
               </>
-            ) : (
+            ) : step === "creds" ? (
               <>
                 <p className="mt-5 text-sm text-white/60">
-                  Enter your owner username and password to open the dashboard.
+                  Step 2 of 3. Enter your owner username and password. A one-time code is then
+                  emailed to you.
                 </p>
                 <form onSubmit={submitCreds} className="mt-6 space-y-4">
                   <label className="block">
@@ -567,10 +568,79 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
                     className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
                   >
                     <span className="relative z-10">
+                      {busy ? "Checking…" : "Continue to verification"}
+                    </span>
+                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <p className="mt-5 text-sm text-white/60">
+                  Step 3 of 3. We emailed a 6 digit code to{" "}
+                  <span className="font-semibold text-white/85">{emailHint}</span>. Enter it to
+                  finish signing in.
+                </p>
+                <form onSubmit={submitCode} className="mt-6 space-y-4">
+                  <label className="block">
+                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
+                      Verification code
+                    </span>
+                    <input
+                      autoFocus
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
+                      disabled={locked}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] outline-none placeholder:text-white/25 placeholder:tracking-[0.4em] focus:border-fuchsia-400 disabled:opacity-50"
+                      placeholder="000000"
+                    />
+                  </label>
+
+                  {err && (
+                    <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      {err}
+                    </div>
+                  )}
+                  {resendNote && (
+                    <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs text-sky-300">
+                      {resendNote}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={busy || locked || code.length < 6}
+                    className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
+                  >
+                    <span className="relative z-10">
                       {busy ? "Verifying…" : "Enter dashboard"}
                     </span>
                     <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                   </button>
+
+                  <div className="flex items-center justify-between text-[11px] text-white/45">
+                    <button
+                      type="button"
+                      onClick={resendCode}
+                      disabled={busy}
+                      className="hover:text-white disabled:opacity-50"
+                    >
+                      Resend code
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErr(null);
+                        setResendNote(null);
+                        setStep("creds");
+                      }}
+                      className="hover:text-white"
+                    >
+                      Use different credentials
+                    </button>
+                  </div>
                 </form>
               </>
             )}
