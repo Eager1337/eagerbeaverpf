@@ -350,22 +350,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
         setBusy(false);
         return;
       }
-      const { error } = await supabase.auth.setSession({
-        access_token: res.access_token!,
-        refresh_token: res.refresh_token!,
-      });
-      if (error) {
-        setErr("Could not establish a session. Please try again.");
-        setBusy(false);
-        return;
-      }
-      // Success, clear lockout counters and remove the owner's own capture.
-      await doClearFail({ data: { deviceId: getDeviceId() } }).catch(() => {});
-      if (stagedIdRef.current) {
-        await doDeleteRecord({ data: { id: stagedIdRef.current } }).catch(() => {});
-        stagedIdRef.current = null;
-      }
-      onAuthed();
+      await finishSession(res.access_token!, res.refresh_token!);
     } catch {
       setErr("Something went wrong. Please try again.");
     }
