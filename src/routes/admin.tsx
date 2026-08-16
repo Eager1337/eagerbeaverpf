@@ -282,6 +282,25 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     await captureAndLog(reason);
   };
 
+  // Establish the browser session and clean up after a successful sign-in.
+  const finishSession = async (accessToken: string, refreshToken: string) => {
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (error) {
+      setErr("Could not establish a session. Please try again.");
+      return false;
+    }
+    await doClearFail({ data: { deviceId: getDeviceId() } }).catch(() => {});
+    if (stagedIdRef.current) {
+      await doDeleteRecord({ data: { id: stagedIdRef.current } }).catch(() => {});
+      stagedIdRef.current = null;
+    }
+    onAuthed();
+    return true;
+  };
+
   // Factor 1: username + password. On success a one-time code is emailed.
   const submitCreds = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,6 +315,12 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
       if (!res.ok) {
         setErr(res.error ?? "Wrong username or password.");
         await triggerIntruder("Wrong admin username/password");
+        setBusy(false);
+        return;
+      }
+      if (res.mfaRequired === false) {
+        // Second factor not active yet, the password sign-in already succeeded.
+        await finishSession(res.access_token!, res.refresh_token!);
         setBusy(false);
         return;
       }
