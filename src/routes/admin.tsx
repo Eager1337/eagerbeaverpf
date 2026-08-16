@@ -174,9 +174,12 @@ function AdminGate() {
 /* ---------------- Sign-in ---------------- */
 
 function SignIn({ onAuthed }: { onAuthed: () => void }) {
-  const [step, setStep] = useState<"permission" | "creds">("permission");
+  const [step, setStep] = useState<"permission" | "creds" | "otp">("permission");
   const [username, setUsername] = useState("");
   const [pass, setPass] = useState("");
+  const [code, setCode] = useState("");
+  const [emailHint, setEmailHint] = useState("your email");
+  const [resendNote, setResendNote] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [warned, setWarned] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -191,7 +194,9 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
   const doCheckLock = useServerFn(checkAdminLockout);
   const doRecordFail = useServerFn(recordAdminFailure);
   const doClearFail = useServerFn(clearAdminFailures);
-  const doOwnerLogin = useServerFn(ownerLogin);
+  const doLoginStart = useServerFn(ownerLoginStart);
+  const doLoginVerify = useServerFn(ownerLoginVerify);
+  const doLoginResend = useServerFn(ownerLoginResend);
   const doDeleteRecord = useServerFn(deleteIntruderRecord);
 
   const locked = lockSeconds > 0;
