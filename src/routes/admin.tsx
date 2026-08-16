@@ -68,7 +68,11 @@ import {
   updatePrivacySettings,
   purgeExpiredNow,
 } from "../lib/security.functions";
-import { ownerLogin } from "../lib/owner-auth.functions";
+import {
+  ownerLoginStart,
+  ownerLoginVerify,
+  ownerLoginResend,
+} from "../lib/owner-auth.functions";
 import {
   listPortfolioAssets,
   uploadPortfolioAsset,
