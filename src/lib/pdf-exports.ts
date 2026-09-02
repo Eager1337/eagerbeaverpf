@@ -363,3 +363,240 @@ export function downloadQuotePdf(q: QuoteInput) {
   footer(doc);
   saveAs(doc, `proposal-${(q.client || "client").replace(/\W+/g, "-")}-${Date.now()}.pdf`);
 }
+/* ============ Investor pitch deck ============ */
+
+/* ============ Branded proposal + signable contract ============ */
+export interface ProposalInput {
+  client_name: string;
+  client_email: string;
+  title: string;
+  summary: string;
+  scope: string[];
+  deliverables: string;
+  timeline: string;
+  price: number;
+  currency: string;
+  valid_until?: string | null;
+  notes?: string;
+}
+
+export async function downloadProposalPdf(p: ProposalInput) {
+  const doc = new jsPDF();
+  header(doc, p.title || "Project Proposal", await loadPortrait());
+  let y = 46;
+  const money = `${p.currency || "USD"} ${Number(p.price || 0).toLocaleString()}`;
+
+  doc.setFontSize(10).setTextColor(60, 60, 60);
+  doc.text(`Prepared for: ${p.client_name || "Client"}`, 14, y);
+  y += 5;
+  if (p.client_email) { doc.text(p.client_email, 14, y); y += 5; }
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, y);
+  y += 5;
+  if (p.valid_until) { doc.text(`Valid until: ${p.valid_until}`, 14, y); y += 5; }
+  y += 5;
+
+  const sec = (title: string) => {
+    if (y > 250) { doc.addPage(); y = 24; }
+    doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(230, 57, 70);
+    doc.text(title.toUpperCase(), 14, y);
+    y += 6;
+    doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(30, 30, 30);
+  };
+  const para = (t: string) => {
+    if (!t) return;
+    const w = doc.splitTextToSize(t, 182);
+    if (y + w.length * 5 > 275) { doc.addPage(); y = 24; }
+    doc.text(w, 14, y);
+    y += w.length * 5 + 3;
+  };
+  const li = (t: string) => para("\u2022 " + t);
+
+  if (p.summary) { sec("Executive summary"); para(p.summary); }
+  if (p.scope.length) { sec("Scope of work"); p.scope.forEach(li); }
+  if (p.deliverables) { sec("Deliverables"); p.deliverables.split("\n").filter(Boolean).forEach(li); }
+  if (p.timeline) { sec("Timeline"); para(p.timeline); }
+
+  sec("Investment");
+  doc.setFont("helvetica", "bold").setFontSize(14);
+  doc.text(money, 14, y);
+  y += 10;
+  doc.setFont("helvetica", "normal").setFontSize(10);
+
+  if (p.notes) { sec("Notes"); para(p.notes); }
+
+  sec("Acceptance");
+  para("Signing below authorises the scope, timeline and investment above.");
+  doc.setDrawColor(150, 150, 150);
+  doc.line(14, y + 12, 90, y + 12);
+  doc.line(110, y + 12, 196, y + 12);
+  doc.setFontSize(8).setTextColor(120, 120, 120);
+  doc.text("Client signature", 14, y + 17);
+  doc.text("Date", 110, y + 17);
+
+  footer(doc);
+  saveAs(doc, `proposal-${(p.client_name || "client").replace(/\W+/g, "-")}-${Date.now()}.pdf`);
+}
+
+export interface ContractInput {
+  title: string;
+  client_name: string;
+  value: number;
+  starts_on?: string | null;
+  ends_on?: string | null;
+  terms: string;
+  signer_name?: string;
+  signer_email?: string;
+  signature_data?: string;
+  signed_at?: string | null;
+}
+
+export async function downloadContractPdf(c: ContractInput) {
+  const doc = new jsPDF();
+  header(doc, c.title || "Service agreement", await loadPortrait());
+  let y = 46;
+  doc.setFontSize(10).setTextColor(60, 60, 60);
+  doc.text(`Client: ${c.client_name || "Client"}`, 14, y);
+  y += 5;
+  doc.text(`Contract value: $${Number(c.value || 0).toLocaleString()}`, 14, y);
+  y += 5;
+  doc.text(`Term: ${c.starts_on || "TBD"} to ${c.ends_on || "TBD"}`, 14, y);
+  y += 10;
+
+  doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(230, 57, 70);
+  doc.text("TERMS", 14, y);
+  y += 6;
+  doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(30, 30, 30);
+  const terms = doc.splitTextToSize(c.terms || "Terms to be agreed.", 182);
+  terms.forEach((line: string) => {
+    if (y > 255) { doc.addPage(); y = 24; }
+    doc.text(line, 14, y);
+    y += 5;
+  });
+  y += 8;
+
+  if (y > 220) { doc.addPage(); y = 30; }
+  doc.setFont("helvetica", "bold").setFontSize(12).setTextColor(230, 57, 70);
+  doc.text("SIGNATURE", 14, y);
+  y += 8;
+  doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(30, 30, 30);
+  if (c.signature_data) {
+    try { doc.addImage(c.signature_data, "PNG", 14, y, 70, 26); } catch { /* ignore */ }
+  }
+  doc.setDrawColor(150, 150, 150);
+  doc.line(14, y + 28, 90, y + 28);
+  doc.setFontSize(9);
+  doc.text(c.signer_name || "Unsigned", 14, y + 34);
+  if (c.signer_email) doc.text(c.signer_email, 14, y + 39);
+  if (c.signed_at) doc.text(`Signed ${new Date(c.signed_at).toLocaleString()}`, 110, y + 34);
+
+  footer(doc);
+  saveAs(doc, `contract-${(c.client_name || "client").replace(/\W+/g, "-")}-${Date.now()}.pdf`);
+}
+
+import {
+  PRESS_SUMMARY,
+  PRESS_METRICS,
+  PRESS_COMPETITORS,
+  PRESS_PARTNERSHIPS,
+  PRESS_BOILERPLATE,
+  PRESS_FACTS,
+} from "../data/press-kit";
+
+export async function downloadPitchDeckPdf() {
+  const doc = new jsPDF({ orientation: "landscape", format: "a4" });
+  const W = 297;
+  const H = 210;
+
+  const slide = (kicker: string, title: string) => {
+    doc.setFillColor(10, 10, 12);
+    doc.rect(0, 0, W, H, "F");
+    doc.setFillColor(230, 57, 70);
+    doc.rect(0, 0, W, 4, "F");
+    doc.setTextColor(230, 57, 70).setFont("helvetica", "bold").setFontSize(9);
+    doc.text(kicker.toUpperCase(), 18, 24);
+    doc.setTextColor(255, 255, 255).setFontSize(26);
+    doc.text(title, 18, 40);
+    doc.setFont("helvetica", "normal");
+  };
+  const body = (lines: string[], startY = 58, size = 12) => {
+    doc.setFontSize(size).setTextColor(225, 225, 230);
+    let y = startY;
+    lines.forEach((l) => {
+      const w = doc.splitTextToSize(l, W - 36);
+      doc.text(w, 18, y);
+      y += w.length * (size * 0.52) + 5;
+    });
+    return y;
+  };
+
+  // Cover
+  slide("Investor pitch deck", BRAND);
+  body([BRAND_TAG, PRESS_BOILERPLATE], 60, 13);
+  doc.setFontSize(10).setTextColor(150, 150, 155);
+  doc.text(CONTACT, 18, H - 16);
+
+  // Executive summary
+  doc.addPage();
+  slide("Executive summary", "One operator, product-grade delivery");
+  body(PRESS_SUMMARY.map((s) => "• " + s));
+
+  // Metrics
+  doc.addPage();
+  slide("Key metrics", "Traction to date");
+  PRESS_METRICS.forEach((m, i) => {
+    const col = i % 3;
+    const row = Math.floor(i / 3);
+    const x = 18 + col * 90;
+    const y = 62 + row * 52;
+    doc.setDrawColor(60, 60, 66).roundedRect(x, y - 12, 82, 40, 3, 3);
+    doc.setTextColor(230, 57, 70).setFont("helvetica", "bold").setFontSize(20);
+    doc.text(m.value, x + 6, y);
+    doc.setTextColor(255, 255, 255).setFontSize(9);
+    doc.text(m.label.toUpperCase(), x + 6, y + 7);
+    doc.setFont("helvetica", "normal").setTextColor(180, 180, 186).setFontSize(8);
+    doc.text(doc.splitTextToSize(m.note, 72), x + 6, y + 14);
+  });
+
+  // Competitors
+  doc.addPage();
+  slide("Competitive landscape", "Why clients pick the studio");
+  let cy = 58;
+  doc.setFontSize(9).setTextColor(150, 150, 155);
+  ["Option", "Positioning", "Speed", "Ownership", "Pricing"].forEach((h, i) =>
+    doc.text(h.toUpperCase(), 18 + i * 55, cy),
+  );
+  cy += 6;
+  PRESS_COMPETITORS.forEach((c) => {
+    doc.setFont("helvetica", c.us ? "bold" : "normal");
+    if (c.us) doc.setTextColor(230, 57, 70);
+    else doc.setTextColor(225, 225, 230);
+    doc.setFontSize(9);
+    [c.name, c.positioning, c.speed, c.ownership, c.price].forEach((v, i) => {
+      doc.text(doc.splitTextToSize(v, 52), 18 + i * 55, cy);
+    });
+    cy += 20;
+  });
+
+  // Partnerships
+  doc.addPage();
+  slide("Partnerships", "The delivery stack");
+  body(PRESS_PARTNERSHIPS.map((p) => `• ${p.name} (${p.kind}): ${p.body}`), 58, 11);
+
+  // Selected work
+  doc.addPage();
+  slide("Selected work", "Shipped platforms");
+  body(
+    PROJECTS.slice(0, 6).map((p) => `• ${p.title}: ${p.tagline}`),
+    58,
+    11,
+  );
+
+  // Facts and contact
+  doc.addPage();
+  slide("Fact sheet", "Studio at a glance");
+  body(PRESS_FACTS.map((f) => `• ${f.label}: ${f.value} — ${f.note}`.replace(" — ", ". ")), 58, 12);
+  doc.setFontSize(11).setTextColor(230, 57, 70);
+  doc.text(CONTACT, 18, H - 20);
+
+  saveAs(doc, `eager-beaver-pitch-deck-${Date.now()}.pdf`);
+}

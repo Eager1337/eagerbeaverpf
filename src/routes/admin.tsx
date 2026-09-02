@@ -35,7 +35,51 @@ import {
   SlidersHorizontal,
   CheckCircle2,
   XCircle,
+  Palette,
+  LayoutTemplate,
+  FolderOpen,
+  Settings2,
+  Inbox,
+  Users,
+  FolderKanban,
+  LayoutGrid,
+  BookOpen,
+  Activity,
 } from "lucide-react";
+import { ProposalsPanel, ContractSigningPanel } from "../components/admin/ProposalPanels";
+import {
+  ThemeStudioPanel,
+  ContentSectionsPanel,
+  MediaLibraryPanel,
+  SiteSettingsPanel,
+  LeadsPanel,
+} from "../components/admin/ExtraPanels";
+import {
+  ClientsPanel,
+  ProjectsPanel,
+  DevWorkspacePanel,
+  KnowledgePanel,
+  VisitorsPanel,
+} from "../components/admin/WorkspacePanels";
+import { AnalyticsCenter } from "../components/admin/AnalyticsCenter";
+import { AiWorkspacePanel } from "../components/admin/AiWorkspacePanel";
+import { SiteBuilderPanel } from "../components/admin/SiteBuilderPanel";
+import { SecurityMfaPanel } from "../components/admin/SecurityMfaPanel";
+import {
+  ProductsPanel,
+  BundlesPanel,
+  ReviewsPanel,
+  LicensesPanel,
+} from "../components/admin/MarketplacePanels";
+import {
+  SalesPanel,
+  BookingsPanel,
+  FinancePanel,
+  TeamPanel,
+  ContractsPanel,
+  DeploymentCenterPanel,
+  SecurityCenterPanel,
+} from "../components/admin/BusinessPanels";
 import {
   useContent,
   type ToonSlide,
@@ -68,11 +112,7 @@ import {
   updatePrivacySettings,
   purgeExpiredNow,
 } from "../lib/security.functions";
-import {
-  ownerLoginStart,
-  ownerLoginVerify,
-  ownerLoginResend,
-} from "../lib/owner-auth.functions";
+import { ownerLogin } from "../lib/owner-auth.functions";
 import {
   listPortfolioAssets,
   uploadPortfolioAsset,
@@ -178,12 +218,9 @@ function AdminGate() {
 /* ---------------- Sign-in ---------------- */
 
 function SignIn({ onAuthed }: { onAuthed: () => void }) {
-  const [step, setStep] = useState<"permission" | "creds" | "otp">("permission");
+  const [step, setStep] = useState<"permission" | "creds">("permission");
   const [username, setUsername] = useState("");
   const [pass, setPass] = useState("");
-  const [code, setCode] = useState("");
-  const [emailHint, setEmailHint] = useState("your email");
-  const [resendNote, setResendNote] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [warned, setWarned] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -198,9 +235,7 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
   const doCheckLock = useServerFn(checkAdminLockout);
   const doRecordFail = useServerFn(recordAdminFailure);
   const doClearFail = useServerFn(clearAdminFailures);
-  const doLoginStart = useServerFn(ownerLoginStart);
-  const doLoginVerify = useServerFn(ownerLoginVerify);
-  const doLoginResend = useServerFn(ownerLoginResend);
+  const doOwnerLogin = useServerFn(ownerLogin);
   const doDeleteRecord = useServerFn(deleteIntruderRecord);
 
   const locked = lockSeconds > 0;
@@ -282,34 +317,13 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
     await captureAndLog(reason);
   };
 
-  // Establish the browser session and clean up after a successful sign-in.
-  const finishSession = async (accessToken: string, refreshToken: string) => {
-    const { error } = await supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-    if (error) {
-      setErr("Could not establish a session. Please try again.");
-      return false;
-    }
-    await doClearFail({ data: { deviceId: getDeviceId() } }).catch(() => {});
-    if (stagedIdRef.current) {
-      await doDeleteRecord({ data: { id: stagedIdRef.current } }).catch(() => {});
-      stagedIdRef.current = null;
-    }
-    onAuthed();
-    return true;
-  };
-
-  // Factor 1: username + password. On success a one-time code is emailed.
   const submitCreds = async (e: React.FormEvent) => {
     e.preventDefault();
     if (locked) return;
     setBusy(true);
     setErr(null);
-    setResendNote(null);
     try {
-      const res = await doLoginStart({
+      const res = await doOwnerLogin({
         data: { username: username.trim(), password: pass },
       });
       if (!res.ok) {
@@ -318,56 +332,24 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
         setBusy(false);
         return;
       }
-      if (res.mfaRequired === false) {
-        // Second factor not active yet, the password sign-in already succeeded.
-        await finishSession(res.access_token!, res.refresh_token!);
+      const { error } = await supabase.auth.setSession({
+        access_token: res.access_token!,
+        refresh_token: res.refresh_token!,
+      });
+      if (error) {
+        setErr("Could not establish a session. Please try again.");
         setBusy(false);
         return;
       }
-      setEmailHint(res.emailHint ?? "your email");
-      setCode("");
-      setStep("otp");
-    } catch {
-      setErr("Something went wrong. Please try again.");
-    }
-    setBusy(false);
-  };
-
-  // Factor 2: the emailed one-time code. Verifying it is what mints the session.
-  const submitCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (locked) return;
-    setBusy(true);
-    setErr(null);
-    setResendNote(null);
-    try {
-      const res = await doLoginVerify({
-        data: { username: username.trim(), password: pass, code: code.trim() },
-      });
-      if (!res.ok) {
-        setErr(res.error ?? "That code is invalid or has expired.");
-        await triggerIntruder("Wrong admin verification code");
-        setBusy(false);
-        return;
+      // Success, clear lockout counters and remove the owner's own capture.
+      await doClearFail({ data: { deviceId: getDeviceId() } }).catch(() => {});
+      if (stagedIdRef.current) {
+        await doDeleteRecord({ data: { id: stagedIdRef.current } }).catch(() => {});
+        stagedIdRef.current = null;
       }
-      await finishSession(res.access_token!, res.refresh_token!);
+      onAuthed();
     } catch {
       setErr("Something went wrong. Please try again.");
-    }
-    setBusy(false);
-  };
-
-  const resendCode = async () => {
-    if (busy) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const res = await doLoginResend({
-        data: { username: username.trim(), password: pass },
-      });
-      setResendNote(res.ok ? "A new code is on its way." : "Could not resend right now.");
-    } catch {
-      setResendNote("Could not resend right now.");
     }
     setBusy(false);
   };
@@ -524,11 +506,10 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
                   Your browser will ask for permission. Failed or denied attempts are still logged.
                 </p>
               </>
-            ) : step === "creds" ? (
+            ) : (
               <>
                 <p className="mt-5 text-sm text-white/60">
-                  Step 2 of 3. Enter your owner username and password. A one-time code is then
-                  emailed to you.
+                  Enter your owner username and password to open the dashboard.
                 </p>
                 <form onSubmit={submitCreds} className="mt-6 space-y-4">
                   <label className="block">
@@ -578,79 +559,10 @@ function SignIn({ onAuthed }: { onAuthed: () => void }) {
                     className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
                   >
                     <span className="relative z-10">
-                      {busy ? "Checking…" : "Continue to verification"}
-                    </span>
-                    <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-                  </button>
-                </form>
-              </>
-            ) : (
-              <>
-                <p className="mt-5 text-sm text-white/60">
-                  Step 3 of 3. We emailed a 6 digit code to{" "}
-                  <span className="font-semibold text-white/85">{emailHint}</span>. Enter it to
-                  finish signing in.
-                </p>
-                <form onSubmit={submitCode} className="mt-6 space-y-4">
-                  <label className="block">
-                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/50">
-                      Verification code
-                    </span>
-                    <input
-                      autoFocus
-                      value={code}
-                      onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))}
-                      disabled={locked}
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-center text-2xl font-bold tracking-[0.5em] outline-none placeholder:text-white/25 placeholder:tracking-[0.4em] focus:border-fuchsia-400 disabled:opacity-50"
-                      placeholder="000000"
-                    />
-                  </label>
-
-                  {err && (
-                    <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                      {err}
-                    </div>
-                  )}
-                  {resendNote && (
-                    <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs text-sky-300">
-                      {resendNote}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={busy || locked || code.length < 6}
-                    className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-fuchsia-500 to-sky-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-500/30 transition-transform hover:scale-[1.01] disabled:opacity-60"
-                  >
-                    <span className="relative z-10">
                       {busy ? "Verifying…" : "Enter dashboard"}
                     </span>
                     <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                   </button>
-
-                  <div className="flex items-center justify-between text-[11px] text-white/45">
-                    <button
-                      type="button"
-                      onClick={resendCode}
-                      disabled={busy}
-                      className="hover:text-white disabled:opacity-50"
-                    >
-                      Resend code
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setErr(null);
-                        setResendNote(null);
-                        setStep("creds");
-                      }}
-                      className="hover:text-white"
-                    >
-                      Use different credentials
-                    </button>
-                  </div>
                 </form>
               </>
             )}
@@ -691,10 +603,59 @@ type TabKey =
   | "intruders"
   | "seclogin"
   | "audit"
-  | "privacy";
+  | "privacy"
+  | "themes"
+  | "sections"
+  | "media"
+  | "settings"
+  | "leads"
+  | "clients"
+  | "projects"
+  | "workspace"
+  | "knowledge"
+  | "visitors"
+  | "bi"
+  | "sales"
+  | "bookings"
+  | "finance"
+  | "team"
+  | "contracts"
+  | "proposals"
+  | "esign"
+  | "deploy"
+  | "seccenter"
+  | "ai"
+  | "market"
+  | "bundles"
+  | "reviews"
+  | "licenses"
+  | "mfa"
+  | "builder";
 
 const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
+  { key: "clients", label: "Clients", icon: Users },
+  { key: "projects", label: "Projects", icon: FolderKanban },
+  { key: "workspace", label: "Dev Workspace", icon: LayoutGrid },
+  { key: "knowledge", label: "Knowledge Base", icon: BookOpen },
+  { key: "visitors", label: "Visitors", icon: Activity },
+  { key: "bi", label: "Business Intelligence", icon: Activity },
+  { key: "sales", label: "Sales & Orders", icon: DollarSign },
+  { key: "bookings", label: "Bookings", icon: Clock },
+  { key: "finance", label: "Finance & Goals", icon: DollarSign },
+  { key: "team", label: "Team Workspace", icon: Users },
+  { key: "contracts", label: "Contracts & Invoices", icon: FileText },
+  { key: "proposals", label: "Proposal Generator", icon: FileText },
+  { key: "esign", label: "E-signature", icon: FileText },
+  { key: "deploy", label: "Deployment Center", icon: Rocket },
+  { key: "seccenter", label: "Cybersecurity Center", icon: ShieldAlert },
+  { key: "ai", label: "AI Workspace", icon: Sparkles },
+  { key: "builder", label: "AI Website Builder", icon: Sparkles },
+  { key: "market", label: "Marketplace Products", icon: DollarSign },
+  { key: "bundles", label: "Bundle Deals", icon: DollarSign },
+  { key: "reviews", label: "Customer Reviews", icon: Inbox },
+  { key: "licenses", label: "License Keys", icon: ShieldCheck },
+  { key: "mfa", label: "2FA & Passkeys", icon: ShieldCheck },
   { key: "toonhub", label: "ToonHub Slides", icon: ImageIcon },
   { key: "legends", label: "Legends", icon: Sparkles },
   { key: "pricing", label: "Pricing Tiers", icon: DollarSign },
@@ -706,6 +667,11 @@ const TABS: { key: TabKey; label: string; icon: typeof LayoutDashboard }[] = [
   { key: "seclogin", label: "Sign-in Security", icon: SlidersHorizontal },
   { key: "audit", label: "Audit Log", icon: FileText },
   { key: "privacy", label: "Privacy Controls", icon: Clock },
+  { key: "themes", label: "Theme Studio", icon: Palette },
+  { key: "sections", label: "Content Sections", icon: LayoutTemplate },
+  { key: "media", label: "Media Library", icon: FolderOpen },
+  { key: "settings", label: "Site Settings", icon: Settings2 },
+  { key: "leads", label: "Leads Inbox", icon: Inbox },
 ];
 
 
@@ -839,6 +805,33 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
               {tab === "seclogin" && <SecurityLoginPanel />}
               {tab === "audit" && <AuditLogPanel />}
               {tab === "privacy" && <PrivacyPanel />}
+              {tab === "themes" && <ThemeStudioPanel />}
+              {tab === "sections" && <ContentSectionsPanel />}
+              {tab === "media" && <MediaLibraryPanel />}
+              {tab === "settings" && <SiteSettingsPanel />}
+              {tab === "leads" && <LeadsPanel />}
+              {tab === "clients" && <ClientsPanel />}
+              {tab === "projects" && <ProjectsPanel />}
+              {tab === "workspace" && <DevWorkspacePanel />}
+              {tab === "knowledge" && <KnowledgePanel />}
+              {tab === "visitors" && <VisitorsPanel />}
+              {tab === "bi" && <AnalyticsCenter />}
+              {tab === "sales" && <SalesPanel />}
+              {tab === "bookings" && <BookingsPanel />}
+              {tab === "finance" && <FinancePanel />}
+              {tab === "team" && <TeamPanel />}
+              {tab === "contracts" && <ContractsPanel />}
+              {tab === "proposals" && <ProposalsPanel />}
+              {tab === "esign" && <ContractSigningPanel />}
+              {tab === "deploy" && <DeploymentCenterPanel />}
+              {tab === "seccenter" && <SecurityCenterPanel />}
+              {tab === "ai" && <AiWorkspacePanel />}
+              {tab === "builder" && <SiteBuilderPanel />}
+              {tab === "market" && <ProductsPanel />}
+              {tab === "bundles" && <BundlesPanel />}
+              {tab === "reviews" && <ReviewsPanel />}
+              {tab === "licenses" && <LicensesPanel />}
+              {tab === "mfa" && <SecurityMfaPanel />}
             </motion.div>
           </AnimatePresence>
         </main>
