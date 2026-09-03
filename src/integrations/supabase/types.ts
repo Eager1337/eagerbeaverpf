@@ -811,6 +811,66 @@ export type Database = {
         }
         Relationships: []
       }
+      live_projects: {
+        Row: {
+          created_at: string
+          custom_domain: string | null
+          description: string | null
+          featured: boolean
+          id: string
+          language: string | null
+          live_url: string | null
+          published: boolean
+          repo_url: string | null
+          slug: string
+          sort_order: number
+          stars: number | null
+          tagline: string | null
+          tech: string[]
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_domain?: string | null
+          description?: string | null
+          featured?: boolean
+          id?: string
+          language?: string | null
+          live_url?: string | null
+          published?: boolean
+          repo_url?: string | null
+          slug: string
+          sort_order?: number
+          stars?: number | null
+          tagline?: string | null
+          tech?: string[]
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_domain?: string | null
+          description?: string | null
+          featured?: boolean
+          id?: string
+          language?: string | null
+          live_url?: string | null
+          published?: boolean
+          repo_url?: string | null
+          slug?: string
+          sort_order?: number
+          stars?: number | null
+          tagline?: string | null
+          tech?: string[]
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       login_alerts: {
         Row: {
           acknowledged: boolean
