@@ -11,6 +11,24 @@ async function assertAdmin(context: { supabase: any; userId: string }) {
   if (!isAdmin) throw new Error("Forbidden");
 }
 
+
+function publicDb() {
+  const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
+  return import("@supabase/supabase-js").then(({ createClient }) =>
+    createClient(process.env["SUPABASE_URL"]!, key, {
+      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+      global: {
+        fetch: (input: any, init: any) => {
+          const h = new Headers(init?.headers);
+          if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`) h.delete("Authorization");
+          h.set("apikey", key);
+          return fetch(input, { ...init, headers: h });
+        },
+      },
+    }),
+  );
+}
+
 const slugify = (v: string) =>
   v
     .toLowerCase()
@@ -20,12 +38,7 @@ const slugify = (v: string) =>
 
 /** Public: published live project previews for the About / portfolio page. */
 export const listPublishedLiveProjects = createServerFn({ method: "GET" }).handler(async () => {
-  const { createClient } = await import("@supabase/supabase-js");
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_PUBLISHABLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
+  const supabase = await publicDb();
   const { data, error } = await supabase
     .from("live_projects")
     .select("*")
@@ -36,6 +49,29 @@ export const listPublishedLiveProjects = createServerFn({ method: "GET" }).handl
   if (error) throw new Error(error.message);
   return { projects: data ?? [] };
 });
+
+/** Public: record that a visitor opened a preview, or clicked Visit site / Source. */
+export const trackLiveProjectEvent = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      projectId: z.string().uuid(),
+      slug: z.string().max(80).default(""),
+      kind: z.enum(["preview", "visit", "source", "blocked"]),
+      sessionId: z.string().max(80).default(""),
+      referrer: z.string().max(300).default(""),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const supabase = await publicDb();
+    await supabase.from("live_project_events").insert({
+      project_id: data.projectId,
+      slug: data.slug,
+      kind: data.kind,
+      session_id: data.sessionId,
+      referrer: data.referrer,
+    });
+    return { ok: true };
+  });
 
 /** Admin: every live project, published or not. */
 export const listLiveProjects = createServerFn({ method: "GET" })
@@ -73,6 +109,65 @@ export const fetchGithubRepo = createServerFn({ method: "POST" })
     if (!res.ok) throw new Error(`GitHub responded with ${res.status}`);
     const repo = (await res.json()) as Record<string, any>;
 
+    // README preview (first ~1200 characters of plain text) plus framework detection.
+    let readme = "";
+    let framework = "";
+    try {
+      const rd = await fetch(`https://api.github.com/repos/${pair}/readme`, {
+        headers: {
+          Accept: "application/vnd.github.raw",
+          "User-Agent": "eager-beaver-portfolio",
+        },
+      });
+      if (rd.ok) {
+        const raw = await rd.text();
+        readme = raw
+          .replace(/```[\s\S]*?```/g, " ")
+          .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+          .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+          .replace(/[#>*_`|-]{1,}/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 1200);
+      }
+    } catch {
+      /* README is optional */
+    }
+
+    try {
+      const pkgRes = await fetch(
+        `https://raw.githubusercontent.com/${pair}/HEAD/package.json`,
+        { headers: { "User-Agent": "eager-beaver-portfolio" } },
+      );
+      if (pkgRes.ok) {
+        const pkg = (await pkgRes.json()) as Record<string, any>;
+        const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) } as Record<string, string>;
+        const map: [string, string][] = [
+          ["next", "Next.js"],
+          ["@tanstack/react-start", "TanStack Start"],
+          ["nuxt", "Nuxt"],
+          ["@remix-run/react", "Remix"],
+          ["@angular/core", "Angular"],
+          ["svelte", "Svelte"],
+          ["vue", "Vue"],
+          ["react-native", "React Native"],
+          ["astro", "Astro"],
+          ["react", "React"],
+          ["express", "Express"],
+        ];
+        framework = map.find(([dep]) => deps[dep])?.[1] ?? "";
+      }
+    } catch {
+      /* framework detection is best effort */
+    }
+    if (!framework && repo.language) framework = String(repo.language);
+
+    const license = repo.license?.spdx_id && repo.license.spdx_id !== "NOASSERTION"
+      ? String(repo.license.spdx_id)
+      : repo.license?.name
+        ? String(repo.license.name)
+        : "";
+
     let topics: string[] = Array.isArray(repo.topics) ? repo.topics.slice(0, 8) : [];
     if (repo.language && !topics.includes(repo.language)) topics = [repo.language, ...topics];
 
@@ -88,6 +183,9 @@ export const fetchGithubRepo = createServerFn({ method: "POST" })
         stars: Number(repo.stargazers_count ?? 0),
         tech: topics,
         thumbnail_url: `https://opengraph.githubassets.com/1/${pair}`,
+        readme,
+        framework,
+        license,
       },
     };
   });
@@ -108,6 +206,9 @@ const upsertSchema = z.object({
   featured: z.boolean().optional(),
   published: z.boolean().optional(),
   sort_order: z.number().int().optional(),
+  readme: z.string().max(4000).optional(),
+  framework: z.string().max(80).optional(),
+  license: z.string().max(80).optional(),
 });
 
 /** Admin: create or update a live project preview. */
@@ -150,5 +251,53 @@ export const deleteLiveProject = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { error } = await context.supabase.from("live_projects").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Admin: per-project counts of preview opens, Visit site clicks and Source clicks. */
+export const getLiveProjectStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context);
+    const { data, error } = await context.supabase
+      .from("live_project_events")
+      .select("project_id, kind, session_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20000);
+    if (error) throw new Error(error.message);
+
+    const stats: Record<
+      string,
+      { preview: number; visit: number; source: number; blocked: number; visitors: number }
+    > = {};
+    const seen: Record<string, Set<string>> = {};
+    for (const row of (data ?? []) as any[]) {
+      const id = String(row.project_id ?? "");
+      if (!id) continue;
+      stats[id] ??= { preview: 0, visit: 0, source: 0, blocked: 0, visitors: 0 };
+      const kind = String(row.kind) as "preview" | "visit" | "source" | "blocked";
+      if (kind in stats[id]) stats[id][kind] += 1;
+      seen[id] ??= new Set();
+      if (row.session_id) seen[id].add(String(row.session_id));
+    }
+    for (const id of Object.keys(stats)) stats[id].visitors = seen[id]?.size ?? 0;
+    return { stats };
+  });
+
+/** Admin: rewrite the display order of every project in one go. */
+export const reorderLiveProjects = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(z.object({ ids: z.array(z.string().uuid()).max(200) }))
+  .handler(async ({ context, data }) => {
+    await assertAdmin(context);
+    let i = 0;
+    for (const id of data.ids) {
+      const { error } = await context.supabase
+        .from("live_projects")
+        .update({ sort_order: i })
+        .eq("id", id);
+      if (error) throw new Error(error.message);
+      i += 1;
+    }
     return { ok: true };
   });
