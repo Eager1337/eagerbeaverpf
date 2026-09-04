@@ -811,16 +811,57 @@ export type Database = {
         }
         Relationships: []
       }
+      live_project_events: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          project_id: string | null
+          referrer: string
+          session_id: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          project_id?: string | null
+          referrer?: string
+          session_id?: string
+          slug?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          project_id?: string | null
+          referrer?: string
+          session_id?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_project_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "live_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_projects: {
         Row: {
           created_at: string
           custom_domain: string | null
           description: string | null
           featured: boolean
+          framework: string
           id: string
           language: string | null
+          license: string
           live_url: string | null
           published: boolean
+          readme: string
           repo_url: string | null
           slug: string
           sort_order: number
@@ -836,10 +877,13 @@ export type Database = {
           custom_domain?: string | null
           description?: string | null
           featured?: boolean
+          framework?: string
           id?: string
           language?: string | null
+          license?: string
           live_url?: string | null
           published?: boolean
+          readme?: string
           repo_url?: string | null
           slug: string
           sort_order?: number
@@ -855,10 +899,13 @@ export type Database = {
           custom_domain?: string | null
           description?: string | null
           featured?: boolean
+          framework?: string
           id?: string
           language?: string | null
+          license?: string
           live_url?: string | null
           published?: boolean
+          readme?: string
           repo_url?: string | null
           slug?: string
           sort_order?: number
