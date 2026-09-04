@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  ArrowDown,
+  ArrowUp,
   ExternalLink,
+  Eye,
   Github,
   Globe,
   Loader2,
+  MousePointerClick,
   Plus,
   RefreshCw,
   Star,
@@ -13,7 +17,9 @@ import {
 import {
   deleteLiveProject,
   fetchGithubRepo,
+  getLiveProjectStats,
   listLiveProjects,
+  reorderLiveProjects,
   saveLiveProject,
 } from "../../lib/live-projects.functions";
 
@@ -35,12 +41,22 @@ const EMPTY = {
   featured: false,
   published: true,
   sort_order: 0,
+  readme: "",
+  framework: "",
+  license: "",
 };
 
 type Draft = typeof EMPTY;
 
 const input =
   "min-h-[40px] w-full rounded-lg border border-white/15 bg-black/50 px-3 text-sm outline-none focus:border-fuchsia-400";
+const slugify = (v: string) =>
+  v
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
+
 const labelText = "mb-1.5 block text-[10px] uppercase tracking-[0.2em] text-white/45";
 
 /** Connect GitHub repos or deployed links and preview them live on the About page. */
@@ -49,6 +65,8 @@ export function LiveProjectsPanel() {
   const save = useServerFn(saveLiveProject);
   const remove = useServerFn(deleteLiveProject);
   const github = useServerFn(fetchGithubRepo);
+  const loadStats = useServerFn(getLiveProjectStats);
+  const reorder = useServerFn(reorderLiveProjects);
 
   const [rows, setRows] = useState<Row[]>([]);
   const [draft, setDraft] = useState<Draft>({ ...EMPTY });
@@ -57,19 +75,28 @@ export function LiveProjectsPanel() {
   const [connecting, setConnecting] = useState(false);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
+  const [stats, setStats] = useState<
+    Record<string, { preview: number; visit: number; source: number; blocked: number; visitors: number }>
+  >({});
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const res = await load({});
       setRows(res.projects as Row[]);
+      try {
+        const st = await loadStats({});
+        setStats(st.stats as typeof stats);
+      } catch {
+        /* analytics are optional */
+      }
       setErr("");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not load projects.");
     } finally {
       setLoading(false);
     }
-  }, [load]);
+  }, [load, loadStats]);
 
   useEffect(() => {
     void refresh();
@@ -97,6 +124,9 @@ export function LiveProjectsPanel() {
         language: r.language,
         stars: r.stars,
         tech: d.tech || r.tech.join(", "),
+        readme: r.readme ?? "",
+        framework: r.framework ?? "",
+        license: r.license ?? "",
       }));
       setMsg("Repository connected. Details filled in from GitHub.");
     } catch (e) {
@@ -131,6 +161,9 @@ export function LiveProjectsPanel() {
           featured: draft.featured,
           published: draft.published,
           sort_order: Number(draft.sort_order) || 0,
+          readme: draft.readme,
+          framework: draft.framework,
+          license: draft.license,
         },
       });
       setDraft({ ...EMPTY });
@@ -160,7 +193,26 @@ export function LiveProjectsPanel() {
       featured: Boolean(row.featured),
       published: Boolean(row.published),
       sort_order: Number(row.sort_order ?? 0),
+      readme: String(row.readme ?? ""),
+      framework: String(row.framework ?? ""),
+      license: String(row.license ?? ""),
     });
+
+  const move = async (index: number, delta: number) => {
+    const next = [...rows];
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return;
+    const a = next[index];
+    next[index] = next[target];
+    next[target] = a;
+    setRows(next);
+    try {
+      await reorder({ data: { ids: next.map((r) => String(r.id)) } });
+      await refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not reorder.");
+    }
+  };
 
   const previewUrl = draft.custom_domain || draft.live_url;
 
@@ -223,8 +275,50 @@ export function LiveProjectsPanel() {
             <span className={labelText}>Project title</span>
             <input
               value={draft.title}
-              onChange={(e) => set("title", e.target.value)}
+              onChange={(e) =>
+                setDraft((d) => ({
+                  ...d,
+                  title: e.target.value,
+                  slug: d.id ? d.slug : slugify(e.target.value),
+                }))
+              }
               className={input}
+            />
+          </label>
+          <label className="block">
+            <span className={labelText}>Web address slug (auto)</span>
+            <input
+              value={draft.slug}
+              onChange={(e) => set("slug", slugify(e.target.value))}
+              placeholder="my-app"
+              className={input}
+            />
+          </label>
+          <label className="block">
+            <span className={labelText}>Main framework</span>
+            <input
+              value={draft.framework}
+              onChange={(e) => set("framework", e.target.value)}
+              placeholder="Next.js"
+              className={input}
+            />
+          </label>
+          <label className="block">
+            <span className={labelText}>Licence</span>
+            <input
+              value={draft.license}
+              onChange={(e) => set("license", e.target.value)}
+              placeholder="MIT"
+              className={input}
+            />
+          </label>
+          <label className="block sm:col-span-2">
+            <span className={labelText}>README preview (imported from GitHub)</span>
+            <textarea
+              value={draft.readme}
+              onChange={(e) => set("readme", e.target.value)}
+              rows={4}
+              className="w-full rounded-lg border border-white/15 bg-black/50 px-3 py-2 text-sm outline-none focus:border-fuchsia-400"
             />
           </label>
           <label className="block">
@@ -334,7 +428,8 @@ export function LiveProjectsPanel() {
               title="Deployed project preview"
               src={previewUrl}
               className="h-[420px] w-full rounded-xl border border-white/10 bg-white"
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
+              referrerPolicy="no-referrer"
               loading="lazy"
             />
           </div>
@@ -357,7 +452,7 @@ export function LiveProjectsPanel() {
           </button>
         </div>
         <ul className="mt-3 space-y-2">
-          {rows.map((r) => (
+          {rows.map((r, i) => (
             <li
               key={String(r.id)}
               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/30 px-4 py-3"
@@ -368,10 +463,44 @@ export function LiveProjectsPanel() {
                 </div>
                 <div className="truncate text-[11px] text-white/45">
                   {String(r.custom_domain || r.live_url || r.repo_url || "no link")} ·{" "}
-                  {r.published ? "published" : "hidden"}
+                  {r.published ? "published" : "hidden"} · order {Number(r.sort_order ?? 0)}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-white/60">
+                  <span className="inline-flex items-center gap-1">
+                    <Eye className="h-3 w-3" /> {stats[String(r.id)]?.preview ?? 0} previews opened
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <MousePointerClick className="h-3 w-3" /> {stats[String(r.id)]?.visit ?? 0} visit
+                    site
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Github className="h-3 w-3" /> {stats[String(r.id)]?.source ?? 0} source
+                  </span>
+                  <span>{stats[String(r.id)]?.visitors ?? 0} people</span>
+                  {stats[String(r.id)]?.blocked ? (
+                    <span className="text-amber-300">
+                      {stats[String(r.id)]?.blocked} blocked embeds
+                    </span>
+                  ) : null}
                 </div>
               </button>
               <div className="flex gap-1.5">
+                <button
+                  onClick={() => void move(i, -1)}
+                  aria-label="Move project up"
+                  disabled={i === 0}
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-40"
+                >
+                  <ArrowUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => void move(i, 1)}
+                  aria-label="Move project down"
+                  disabled={i === rows.length - 1}
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-40"
+                >
+                  <ArrowDown className="h-3.5 w-3.5" />
+                </button>
                 {r.custom_domain || r.live_url ? (
                   <a
                     href={String(r.custom_domain || r.live_url)}
